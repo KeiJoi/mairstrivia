@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <AssemblyName>MairsTrivia</AssemblyName>
+    <TargetFramework>net10.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>MairsTrivia</AssemblyName><Version>1.0.0</Version>
+    <Author>Kei Joi</Author><Name>Mair's Trivia</Name><Punchline>Host and run venue trivia.</Punchline>
+    <Description>Host controls for Mair's Trivia. Open with /mairstrivia.</Description><ApplicableVersion>any</ApplicableVersion>
+    <RepoUrl>https://github.com/KeiJoi/mairstrivia</RepoUrl><Tags>trivia;venue;social</Tags><DalamudApiLevel>15</DalamudApiLevel>
   </PropertyGroup>
-  <!-- Add Dalamud package references through the supported local development feed in implementation stage. -->
+  <ItemGroup><ProjectReference Include="..\shared\MairsTrivia.QuestionSets\MairsTrivia.QuestionSets.csproj" /></ItemGroup>
 </Project>

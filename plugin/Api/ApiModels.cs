@@ -1,0 +1,11 @@
+using System.Text.Json.Serialization;
+using MairsTrivia.QuestionSets;
+namespace MairsTrivia.Plugin.Api;
+public sealed record HealthResponse(string Status,string Service,string ApiVersion,DateTimeOffset Timestamp);
+public sealed record HostProfile(Guid Id,string Username,DateTimeOffset CreatedAt);
+public sealed record LoginResponse(string AccessToken,string RefreshToken,HostProfile User);
+public sealed record PlayerScore(Guid Id,string DisplayName,int Score,int CorrectCount,int IncorrectCount);
+public sealed record HostGameState(Guid Id,string JoinCode,string PlayerUrl,string VenueName,string GameName,string State,Guid? ActiveSetId,Guid? ActiveQuestionId,IReadOnlyList<PlayerScore> Players);
+public sealed record CreateGameRequest(string VenueName,string GameName,QuestionSet QuestionSet,string OrderingMode,ScoringRequest Scoring);
+public sealed record ScoringRequest(int CorrectPoints,int IncorrectPoints,int FirstCorrectBonus,bool AllowAnswerChange=false);
+public sealed record QuestionSetAddRequest(QuestionSet QuestionSet,string OrderingMode);
