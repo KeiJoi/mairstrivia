@@ -1,0 +1,29 @@
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+*.user
+*.suo
+
+# Node
+node_modules/
+dist/
+coverage/
+npm-debug.log*
+
+# .NET / IDE
+[Bb]in/
+[Oo]bj/
+.vs/
+.idea/
+TestResults/
+
+# Runtime data
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# OS
+.DS_Store
+Thumbs.db

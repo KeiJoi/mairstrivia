@@ -1,0 +1,22 @@
+{
+  "name": "@mairs-trivia/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "validate:schema": "vitest run tests/question-set-schema.test.ts"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.0.0",
+    "argon2": "^0.41.1",
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

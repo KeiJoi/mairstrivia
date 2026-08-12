@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://keijoi.github.io/mairstrivia/schemas/fftrivia-question-set.schema.json",
+  "title": "Mair's Trivia Question Set",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "schemaVersion", "id", "title", "description", "author", "version", "categories", "tags", "questions"],
+  "properties": {
+    "format": { "const": "fftrivia-question-set" },
+    "schemaVersion": { "const": 1 },
+    "id": { "$ref": "#/$defs/uuid" },
+    "title": { "$ref": "#/$defs/text" },
+    "description": { "type": "string" },
+    "author": { "$ref": "#/$defs/text" },
+    "version": { "$ref": "#/$defs/text" },
+    "categories": { "$ref": "#/$defs/stringList" },
+    "tags": { "$ref": "#/$defs/stringList" },
+    "questions": { "type": "array", "items": { "$ref": "#/$defs/question" } }
+  },
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "text": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
+    "stringList": { "type": "array", "items": { "$ref": "#/$defs/text" }, "uniqueItems": true },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "question", "correctAnswer", "incorrectAnswers", "category", "tags"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "question": { "$ref": "#/$defs/text" },
+        "correctAnswer": { "$ref": "#/$defs/text" },
+        "incorrectAnswers": { "type": "array", "minItems": 9, "maxItems": 9, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } },
+        "category": { "type": ["string", "null"], "pattern": ".*\\S.*" },
+        "tags": { "$ref": "#/$defs/stringList" }
+      }
+    }
+  }
+}

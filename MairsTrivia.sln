@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MairsTrivia.Editor", "editor\MairsTrivia.Editor.csproj", "{B4A4F42D-2A8F-4F0E-8355-9B934A8B2CF1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MairsTrivia.Plugin", "plugin\MairsTrivia.Plugin.csproj", "{EF7B5DE4-2853-47D0-9B4B-2A94FCFE5D12}"
+EndProject
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {B4A4F42D-2A8F-4F0E-8355-9B934A8B2CF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {B4A4F42D-2A8F-4F0E-8355-9B934A8B2CF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {B4A4F42D-2A8F-4F0E-8355-9B934A8B2CF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {B4A4F42D-2A8F-4F0E-8355-9B934A8B2CF1}.Release|Any CPU.Build.0 = Release|Any CPU
+        {EF7B5DE4-2853-47D0-9B4B-2A94FCFE5D12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {EF7B5DE4-2853-47D0-9B4B-2A94FCFE5D12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {EF7B5DE4-2853-47D0-9B4B-2A94FCFE5D12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {EF7B5DE4-2853-47D0-9B4B-2A94FCFE5D12}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
+EndGlobal
