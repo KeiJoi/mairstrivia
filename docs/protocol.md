@@ -1,6 +1,6 @@
 # Protocol contract
 
-Base paths are `/v1` over HTTPS. All JSON fields use camelCase. Error bodies are `{ "error": { "code": "...", "message": "..." } }`. Timestamps follow the [time contract](time-format.md).
+Base paths are `/v1` over HTTPS. Current protocol version is `1`; WebSocket clients send `protocolVersion: 1` in their first frame and unsupported versions receive `unsupported_protocol`. All JSON fields use camelCase. Error bodies are `{ "error": { "code": "...", "message": "..." } }`. Timestamps follow the [time contract](time-format.md).
 
 ## Bootstrap REST endpoints
 
@@ -15,6 +15,12 @@ Base paths are `/v1` over HTTPS. All JSON fields use camelCase. Error bodies are
 | `/games…` | host bearer token | Create/list/read/control only the caller's games. |
 
 Server-credential proof is passed in a dedicated request header over TLS and must not be logged. Host credentials are `Authorization: Bearer <access-token>`.
+
+## Game and player REST endpoints
+
+`POST /games` requires venue name, game name, a valid question set, ordering mode (`inOrder` or `shuffleOnce`), and optional scoring. It returns the internal ID, join code, player URL, and host state. Hosts use `POST /games/:gameId/question-sets`, `/question-sets/:setId/select`, `/questions/preview`, `/questions/skip`, `/questions/open`, `/questions/close`, and `/end` for lifecycle commands.
+
+Players call `POST /player/join` with a join code/display name, retain the returned reconnect credential locally, call `/player/reconnect` after a refresh, and send only `{ reconnectToken, questionId, answerId }` to `/player/answer`. The player state contains only four opaque `{ id, text }` choices while a question is open.
 
 ## WebSocket
 
