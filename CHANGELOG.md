@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1 - 2026-08-12
+
+- Add in-plugin host-account registration from the Settings tab.
+
 ## 1.0.0 - 2026-08-12
 
 Initial production release of Mair's Trivia.
