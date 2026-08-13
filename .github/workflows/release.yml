@@ -35,7 +35,7 @@ jobs:
           Invoke-WebRequest https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile "$env:RUNNER_TEMP\dalamud.zip"; Expand-Archive -Force "$env:RUNNER_TEMP\dalamud.zip" $env:DALAMUD_HOME
           dotnet build plugin/MairsTrivia.Plugin.csproj --configuration Release /p:Version=${{ env.VERSION }}
           Copy-Item plugin/bin/Release/MairsTrivia/latest.zip artifacts/MairsTrivia-v${{ env.VERSION }}.zip
-      - run: Get-FileHash artifacts/* -Algorithm SHA256 | ForEach-Object { "$($_.Hash) *$($_.Path | Split-Path -Leaf)" } | Set-Content artifacts/SHA256SUMS.txt
+      - run: Get-ChildItem artifacts -File | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash) *$($_.Path | Split-Path -Leaf)" } | Set-Content artifacts/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with: { name: release-assets, path: artifacts/* }
   publish:
