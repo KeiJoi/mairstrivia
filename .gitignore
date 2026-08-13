@@ -23,6 +23,8 @@ TestResults/
 *.db-shm
 *.db-wal
 data/
+artifacts/
+.tools/
 
 # OS
 .DS_Store
