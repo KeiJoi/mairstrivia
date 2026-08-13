@@ -10,7 +10,7 @@ const bearer=(value:string|undefined)=>value?.startsWith("Bearer ")?value.slice(
 const serverCredential=(request:any)=>request.headers["x-server-access-password"];
 export function createApp(options:Partial<Config> = {}) {
   const config=loadConfig(options), db=openDatabase(config.databasePath), service=new TriviaService(db,config);
-  const app=Fastify({logger:true});
+  const app=Fastify({bodyLimit: 1_048_576, logger:{redact:["req.headers.authorization","req.headers.x-server-access-password","req.body.password","req.body.refreshToken","req.body.reconnectToken"]}});
   app.decorate("trivia",service);
   app.addHook("onClose",()=>db.close());
   app.setErrorHandler((error,_request,reply)=>{if(error instanceof ServiceError)return reply.code(error.status).send({error:{code:error.code,message:error.message}}); app.log.error(error);return reply.code(500).send({error:{code:"internal_error",message:"An unexpected error occurred."}});});

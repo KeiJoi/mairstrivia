@@ -22,6 +22,8 @@ Server-credential proof is passed in a dedicated request header over TLS and mus
 
 Players call `POST /player/join` with a join code/display name, retain the returned reconnect credential locally, call `/player/reconnect` after a refresh, and send only `{ reconnectToken, questionId, answerId }` to `/player/answer`. The player state contains only four opaque `{ id, text }` choices while a question is open.
 
+Player question state additionally contains the public question text. It never includes correct-answer text as a distinct field, correctness flags, a correct choice ID, or any other correctness metadata. All API request bodies have a 1 MiB maximum; route/service validation rejects malformed payloads before they reach persistence.
+
 ## WebSocket
 
 Connect at `wss://host/v1/ws`. The first client frame must be `{ "type": "authenticate", "accessToken": "…" }` for a host or a player reconnect credential in the appropriate field. No game state is sent until the server replies with `authenticated`. Authentication failure closes the connection with a policy error.

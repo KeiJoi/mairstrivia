@@ -7,3 +7,4 @@ All timestamps crossing component boundaries are UTC ISO 8601/RFC 3339 strings w
 - Local time conversion belongs exclusively to a UI display layer.
 - Player/browser clocks are never authoritative. The server's receipt order decides answer order and first-answer results.
 - The server uses monotonic elapsed timing where practical for durations, while UTC wall-clock timestamps provide history and audit records.
+- Automated integration coverage runs UTC serialization under `America/Chicago` and `Asia/Tokyo`; both must produce the identical `Z`-suffixed boundary value.
