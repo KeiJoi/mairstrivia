@@ -1,6 +1,8 @@
 ; Build with Inno Setup 6 after `dotnet publish editor/MairsTrivia.Editor.csproj -c Release -r win-x64 --self-contained true -o artifacts/editor`.
 #define MyAppName "Mair's Trivia Question Set Editor"
-#define MyAppVersion "1.0.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "1.0.0"
+#endif
 #define MyAppPublisher "Kei Joi"
 #define MyAppExeName "MairsTrivia.Editor.exe"
 [Setup]

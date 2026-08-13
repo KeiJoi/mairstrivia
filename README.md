@@ -10,11 +10,11 @@ The platform shares the versioned `.fftrivia` JSON format defined in [docs/quest
 
 ## Status
 
-This is the Stage 1 foundation: repository layout, contracts, validation schema, and application skeletons. Large UI and gameplay implementations are deliberately deferred.
+The backend, player site, editor, and Dalamud host plugin are implemented. Deployment and release instructions are in [docs/SETUP-SERVER.md](docs/SETUP-SERVER.md) and [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Development
 
-Prerequisites: Node.js 22+ and .NET 8 SDK. The Dalamud project additionally requires Dalamud development dependencies configured by a plugin developer.
+Prerequisites: Node.js 24 LTS and .NET SDKs required by the editor/plugin. The Dalamud project additionally requires current Dalamud development dependencies.
 
 ```powershell
 cd server
