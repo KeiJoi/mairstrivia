@@ -28,6 +28,7 @@ jobs:
       - run: Compress-Archive -Path artifacts/editor/* -DestinationPath artifacts/MairsTrivia-Editor-v${{ env.VERSION }}.zip
       - run: choco install innosetup --no-progress --yes
       - run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ env.VERSION }} installer\MairsTrivia.iss'
+      - run: Copy-Item artifacts/installer/MairsTrivia-Editor-Setup-v${{ env.VERSION }}.exe artifacts/MairsTrivia-Editor-Setup-v${{ env.VERSION }}.exe
       - name: Install Dalamud libraries and package plugin
         shell: pwsh
         run: |
