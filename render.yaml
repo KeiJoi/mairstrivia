@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: mairs-trivia
+    runtime: node
+    plan: starter
+    region: oregon
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    numInstances: 1
+    disk:
+      name: trivia-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: DATABASE_PATH
+        value: /var/data/trivia.sqlite
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: SERVER_ACCESS_PASSWORD
+        sync: false
+      - key: TOKEN_SECRET
+        generateValue: true

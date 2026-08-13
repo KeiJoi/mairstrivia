@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "start": "tsx src/index.ts",
     "build": "tsc --noEmit",
     "test": "vitest run",
     "validate:schema": "vitest run tests/question-set-schema.test.ts"
@@ -13,8 +14,10 @@
     "@fastify/websocket": "^11.0.0",
     "argon2": "^0.41.1",
     "better-sqlite3": "^11.7.0",
-    "fastify": "^5.2.0"
+    "fastify": "^5.2.0",
+    "tsx": "^4.19.2"
   },
+  "engines": { "node": ">=24 <25" },
   "devDependencies": {
     "ajv": "^8.17.1",
     "@types/node": "^22.10.2",
