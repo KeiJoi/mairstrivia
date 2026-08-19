@@ -8,7 +8,7 @@ public static class QuestionSetValidator
         var issues = new List<ValidationIssue>();
         if (set is null) return [new("$", "A question set is required.")];
         if (set.Format != QuestionSetFormat.Identifier) issues.Add(new("format", "Unsupported format identifier."));
-        if (set.SchemaVersion != QuestionSetFormat.SchemaVersion) issues.Add(new("schemaVersion", "Unsupported schema version."));
+        if (!QuestionSetFormat.SupportsSchemaVersion(set.SchemaVersion)) issues.Add(new("schemaVersion", "Unsupported schema version."));
         if (set.Id == Guid.Empty) issues.Add(new("id", "A stable set UUID is required."));
         Required(set.Title, "title", issues); Required(set.Author, "author", issues); Required(set.Version, "version", issues);
         DuplicateValues(set.Categories, "categories", issues); DuplicateValues(set.Tags, "tags", issues);
@@ -19,7 +19,8 @@ public static class QuestionSetValidator
             if (q.Id == Guid.Empty) issues.Add(new($"{path}.id", "A question UUID is required."));
             else if (!ids.Add(q.Id)) issues.Add(new($"{path}.id", "Question IDs must be unique."));
             Required(q.Question, $"{path}.question", issues); Required(q.CorrectAnswer, $"{path}.correctAnswer", issues);
-            if (q.IncorrectAnswers.Count != 9) issues.Add(new($"{path}.incorrectAnswers", "Exactly 9 incorrect answers are required."));
+            var minimum = set.SchemaVersion == QuestionSetFormat.LegacySchemaVersion ? QuestionSetFormat.MaximumIncorrectAnswers : QuestionSetFormat.MinimumIncorrectAnswers;
+            if (q.IncorrectAnswers.Count < minimum || q.IncorrectAnswers.Count > QuestionSetFormat.MaximumIncorrectAnswers) issues.Add(new($"{path}.incorrectAnswers", set.SchemaVersion == QuestionSetFormat.LegacySchemaVersion ? "Exactly 9 incorrect answers are required for schema version 1." : "Between 3 and 9 incorrect answers are required."));
             foreach (var (answer, answerIndex) in q.IncorrectAnswers.Select((x, n) => (x, n))) Required(answer, $"{path}.incorrectAnswers[{answerIndex}]", issues);
             var answers = new[] { q.CorrectAnswer }.Concat(q.IncorrectAnswers).Select(x => x.Trim()).ToList();
             if (answers.Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).Count() != answers.Count(x => x.Length > 0)) issues.Add(new(path, "Correct and incorrect answer text must be distinct."));

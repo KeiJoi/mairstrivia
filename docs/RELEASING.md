@@ -2,7 +2,7 @@
 
 ## Version strategy
 
-Application releases use semantic Git tags such as `v1.0.0`. The editor installer and Dalamud plugin share that release version, while the plugin assembly has four components (`1.0.0.0`). The `.fftrivia` `schemaVersion` is independently versioned and only changes for incompatible question-file changes. The backend protocol is independently versioned (`v1` today); it changes only for incompatible API/WebSocket changes.
+Application releases use semantic Git tags such as `v1.0.0`. The editor installer and Dalamud plugin share that release version, while the plugin assembly has four components (`1.0.0.0`). The `.fftrivia` `schemaVersion` is independently versioned: v2 allows three to nine incorrect answers and retains v1 read compatibility, while other incompatible question-file changes require a new schema version. The backend protocol is independently versioned (`v1` today); it changes only for incompatible API/WebSocket changes.
 
 ## Create a release
 

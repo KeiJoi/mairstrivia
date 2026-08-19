@@ -20,7 +20,7 @@
 
 **Question sets are missing:** Imports are stored in the plugin configuration directory, not beside the original file. If the plugin configuration was deleted or moved, import the `.fftrivia` file again.
 
-**Question-set import or editor validation fails:** Each set needs supported schema version, stable UUIDs, non-empty title/author/version, and unique categories/tags. Every question requires one correct answer and exactly nine distinct, non-empty incorrect answers.
+**Question-set import or editor validation fails:** Each set needs a supported schema version, stable UUIDs, non-empty title/author/version, and unique categories/tags. A schema v2 question requires one correct answer and three to nine distinct, non-empty incorrect answers. Legacy schema v1 files require exactly nine; upgrade the set to schema v2 before reducing the count.
 
 ## Time and play
 

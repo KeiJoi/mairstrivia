@@ -7,7 +7,7 @@
   "required": ["format", "schemaVersion", "id", "title", "description", "author", "version", "categories", "tags", "questions"],
   "properties": {
     "format": { "const": "fftrivia-question-set" },
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "enum": [1, 2] },
     "id": { "$ref": "#/$defs/uuid" },
     "title": { "$ref": "#/$defs/text" },
     "description": { "type": "string" },
@@ -17,6 +17,12 @@
     "tags": { "$ref": "#/$defs/stringList" },
     "questions": { "type": "array", "items": { "$ref": "#/$defs/question" } }
   },
+  "allOf": [
+    {
+      "if": { "type": "object", "properties": { "schemaVersion": { "const": 1 } } },
+      "then": { "type": "object", "properties": { "questions": { "type": "array", "items": { "type": "object", "properties": { "incorrectAnswers": { "type": "array", "minItems": 9, "maxItems": 9 } } } } } }
+    }
+  ],
   "$defs": {
     "uuid": { "type": "string", "format": "uuid" },
     "text": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" },
@@ -29,7 +35,7 @@
         "id": { "$ref": "#/$defs/uuid" },
         "question": { "$ref": "#/$defs/text" },
         "correctAnswer": { "$ref": "#/$defs/text" },
-        "incorrectAnswers": { "type": "array", "minItems": 9, "maxItems": 9, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } },
+        "incorrectAnswers": { "type": "array", "minItems": 3, "maxItems": 9, "uniqueItems": true, "items": { "$ref": "#/$defs/text" } },
         "category": { "type": ["string", "null"], "pattern": ".*\\S.*" },
         "tags": { "$ref": "#/$defs/stringList" }
       }

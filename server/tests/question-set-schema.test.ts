@@ -10,12 +10,12 @@ describe(".fftrivia schema", () => {
   const validate = ajv.compile(schema);
 
   it("accepts a complete question set", () => {
-    const set = { format: "fftrivia-question-set", schemaVersion: 1, id: "1d968d2e-1d78-42be-82fe-3a2654be3660", title: "Set", description: "", author: "Kei Joi", version: "1.0.0", categories: [], tags: [], questions: [{ id: "a409f176-7e28-45e8-84db-fab34c9efea5", question: "Question?", correctAnswer: "Correct", incorrectAnswers: ["1", "2", "3", "4", "5", "6", "7", "8", "9"], category: null, tags: [] }] };
+    const set = { format: "fftrivia-question-set", schemaVersion: 2, id: "1d968d2e-1d78-42be-82fe-3a2654be3660", title: "Set", description: "", author: "Kei Joi", version: "1.0.0", categories: [], tags: [], questions: [{ id: "a409f176-7e28-45e8-84db-fab34c9efea5", question: "Question?", correctAnswer: "Correct", incorrectAnswers: ["1", "2", "3"], category: null, tags: [] }] };
     expect(validate(set)).toBe(true);
   });
 
-  it("rejects a question without exactly nine incorrect answers", () => {
-    const set = { format: "fftrivia-question-set", schemaVersion: 1, id: "1d968d2e-1d78-42be-82fe-3a2654be3660", title: "Set", description: "", author: "Kei Joi", version: "1.0.0", categories: [], tags: [], questions: [{ id: "a409f176-7e28-45e8-84db-fab34c9efea5", question: "Question?", correctAnswer: "Correct", incorrectAnswers: ["1"], category: null, tags: [] }] };
+  it("keeps the exactly-nine requirement for legacy schema version 1", () => {
+    const set = { format: "fftrivia-question-set", schemaVersion: 1, id: "1d968d2e-1d78-42be-82fe-3a2654be3660", title: "Set", description: "", author: "Kei Joi", version: "1.0.0", categories: [], tags: [], questions: [{ id: "a409f176-7e28-45e8-84db-fab34c9efea5", question: "Question?", correctAnswer: "Correct", incorrectAnswers: ["1", "2", "3"], category: null, tags: [] }] };
     expect(validate(set)).toBe(false);
   });
 });

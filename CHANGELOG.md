@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 - 2026-08-18
+
+- Add `.fftrivia` schema v2, allowing three to nine unique, non-empty incorrect answers per question.
+- Preserve legacy schema v1 support and its exactly-nine-answer requirement.
+- Add schema-v2 migration and variable incorrect-answer controls to the editor and Dalamud plugin.
+
 ## 1.0.4 - 2026-08-18
 
 - Add a dedicated question-set delete action and report deletion failures visibly.

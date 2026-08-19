@@ -139,7 +139,7 @@ public sealed class MainWindow : Window, IDisposable
             ImGui.Separator();
             ImGui.TextWrapped(previewQuestion.Question);
             ImGui.TextColored(new Vector4(.45f, .89f, .55f, 1f), $"Correct: {previewQuestion.CorrectAnswer}");
-            ImGui.Text($"Incorrect answers available: {previewQuestion.IncorrectAnswers.Count} / 9");
+            ImGui.Text($"Incorrect answers available: {previewQuestion.IncorrectAnswers.Count} / 3–9");
         }
         ImGui.Text("First correct responder and answer order are determined by the backend.");
     }
@@ -238,7 +238,7 @@ public sealed class MainWindow : Window, IDisposable
             var question = new TriviaQuestion();
             set.Questions.Add(question);
             selectedQuestion = question.Id;
-            status = "Question added. Complete the question, correct answer, and all 9 incorrect answers.";
+            status = "Question added. Complete the question, correct answer, and 3–9 incorrect answers.";
         }
         ImGui.SameLine();
         ImGui.Text($"Questions: {set.Questions.Count}");
@@ -250,7 +250,19 @@ public sealed class MainWindow : Window, IDisposable
             foreach (var issue in issues.Take(3)) ImGui.TextWrapped($"• {issue.Path}: {issue.Message}");
         }
 
-        if (set.Questions.Count == 0) { ImGui.TextDisabled("Add a question to begin. A valid question set needs each question to have 1 correct and exactly 9 incorrect answers."); return; }
+        if (set.SchemaVersion == QuestionSetFormat.LegacySchemaVersion)
+        {
+            ImGui.TextDisabled("Schema v1 requires exactly 9 incorrect answers per question.");
+            ImGui.SameLine();
+            if (ImGui.Button("Upgrade to schema v2 (allow 3–9)"))
+            {
+                set.SchemaVersion = QuestionSetFormat.SchemaVersion;
+                status = "Question set upgraded to schema v2.";
+            }
+        }
+        else ImGui.TextDisabled("Schema v2 allows 3–9 incorrect answers per question.");
+
+        if (set.Questions.Count == 0) { ImGui.TextDisabled("Add a question to begin. A valid question set needs each question to have 1 correct and 3–9 incorrect answers."); return; }
         ImGui.Separator();
         foreach (var (question, index) in set.Questions.Select((value, index) => (value, index)).ToList())
         {
@@ -273,14 +285,19 @@ public sealed class MainWindow : Window, IDisposable
         Input("Question category", ref questionCategory, maxLength: 256);
         question.Category = string.IsNullOrWhiteSpace(questionCategory) ? null : questionCategory;
         var tagsValue = string.Join(", ", question.Tags); Input("Question tags (comma-separated)", ref tagsValue, maxLength: 1024); question.Tags = ParseList(tagsValue);
-        NormalizeIncorrectAnswers(question);
-        ImGui.TextColored(new Vector4(1f, .329f, 0, 1), $"{question.IncorrectAnswers.Count(x => !string.IsNullOrWhiteSpace(x))} / 9 incorrect answers");
-        for (var i = 0; i < 9; i++)
+        var minimumIncorrectAnswers = set.SchemaVersion == QuestionSetFormat.LegacySchemaVersion ? QuestionSetFormat.MaximumIncorrectAnswers : QuestionSetFormat.MinimumIncorrectAnswers;
+        NormalizeIncorrectAnswers(question, minimumIncorrectAnswers);
+        var requirement = set.SchemaVersion == QuestionSetFormat.LegacySchemaVersion ? "9 required for schema v1" : "3–9 required";
+        ImGui.TextColored(new Vector4(1f, .329f, 0, 1), $"{question.IncorrectAnswers.Count(x => !string.IsNullOrWhiteSpace(x))} / {requirement} incorrect answers");
+        for (var i = 0; i < question.IncorrectAnswers.Count; i++)
         {
             var incorrectAnswer = question.IncorrectAnswers[i];
             Input($"Incorrect answer {i + 1}", ref incorrectAnswer, maxLength: 1024);
             question.IncorrectAnswers[i] = incorrectAnswer;
         }
+        if (question.IncorrectAnswers.Count < QuestionSetFormat.MaximumIncorrectAnswers && ImGui.Button("Add incorrect answer")) question.IncorrectAnswers.Add("");
+        ImGui.SameLine();
+        if (question.IncorrectAnswers.Count > minimumIncorrectAnswers && ImGui.Button("Remove last incorrect answer")) question.IncorrectAnswers.RemoveAt(question.IncorrectAnswers.Count - 1);
 
         var index = set.Questions.IndexOf(question);
         if (ImGui.Button("Duplicate Question"))
@@ -341,11 +358,11 @@ public sealed class MainWindow : Window, IDisposable
         selectedQuestion = set.Questions.FirstOrDefault()?.Id;
     }
 
-    private static void NormalizeIncorrectAnswers(TriviaQuestion question)
+    private static void NormalizeIncorrectAnswers(TriviaQuestion question, int minimumIncorrectAnswers)
     {
         question.IncorrectAnswers ??= [];
-        while (question.IncorrectAnswers.Count < 9) question.IncorrectAnswers.Add("");
-        if (question.IncorrectAnswers.Count > 9) question.IncorrectAnswers = question.IncorrectAnswers.Take(9).ToList();
+        while (question.IncorrectAnswers.Count < minimumIncorrectAnswers) question.IncorrectAnswers.Add("");
+        if (question.IncorrectAnswers.Count > QuestionSetFormat.MaximumIncorrectAnswers) question.IncorrectAnswers = question.IncorrectAnswers.Take(QuestionSetFormat.MaximumIncorrectAnswers).ToList();
     }
 
     private static List<string> ParseList(string value) => value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
