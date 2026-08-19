@@ -110,6 +110,8 @@ public sealed class MainWindow : Window, IDisposable
             if (api is null || accessToken is null) throw new Exception("Connect first.");
             if (string.IsNullOrWhiteSpace(venue) || string.IsNullOrWhiteSpace(gameName) || selectedSet is null) throw new Exception("Venue Name, Game Name, and question set are required.");
             var set = plugin.Library.Load(selectedSet.Value);
+            var issues = QuestionSetValidator.Validate(set);
+            if (issues.Count > 0) throw new QuestionSetFormatException("Question set cannot start a game:\n" + string.Join("\n", issues.Take(12).Select(issue => $"{issue.Path}: {issue.Message}")));
             game = await api.PostAsync<HostGameState>("/v1/games", new CreateGameRequest(venue, gameName, set, plugin.Configuration.CompactUi ? "inOrder" : "shuffleOnce", new(plugin.Configuration.CorrectPoints, plugin.Configuration.IncorrectPoints, plugin.Configuration.FirstCorrectBonus)), accessToken, null, CancellationToken.None);
             status = "Game created.";
         }
@@ -202,9 +204,7 @@ public sealed class MainWindow : Window, IDisposable
         {
             try
             {
-                var deleted = plugin.Library.Delete(id);
-                if (selectedSet == id) { selectedSet = null; selectedQuestion = null; editingSet = null; }
-                status = deleted ? "Question set deleted." : "Question set was already removed.";
+                DeleteSet(id);
             }
             catch (Exception ex) { status = ex.Message; }
         }
@@ -231,6 +231,8 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.SameLine();
         if (ImGui.Button("Validate and Save Set")) SaveValidSet(set);
         ImGui.SameLine();
+        if (ImGui.Button("Delete This Question Set")) { DeleteSet(set.Id); return; }
+        ImGui.SameLine();
         if (ImGui.Button("Add Question"))
         {
             var question = new TriviaQuestion();
@@ -240,6 +242,13 @@ public sealed class MainWindow : Window, IDisposable
         }
         ImGui.SameLine();
         ImGui.Text($"Questions: {set.Questions.Count}");
+
+        var issues = QuestionSetValidator.Validate(set);
+        if (issues.Count > 0)
+        {
+            ImGui.TextColored(new Vector4(1f, .17f, .84f, 1f), $"Cannot start a game yet: {issues.Count} validation issue(s).");
+            foreach (var issue in issues.Take(3)) ImGui.TextWrapped($"• {issue.Path}: {issue.Message}");
+        }
 
         if (set.Questions.Count == 0) { ImGui.TextDisabled("Add a question to begin. A valid question set needs each question to have 1 correct and exactly 9 incorrect answers."); return; }
         ImGui.Separator();
@@ -293,6 +302,21 @@ public sealed class MainWindow : Window, IDisposable
     {
         try { plugin.Library.Save(set); status = "Question set validated and saved."; }
         catch (Exception ex) { status = ex.Message; }
+    }
+
+    private void DeleteSet(Guid id)
+    {
+        try
+        {
+            var deleted = plugin.Library.Delete(id);
+            if (selectedSet == id) { selectedSet = null; selectedQuestion = null; editingSet = null; }
+            status = deleted ? "Question set deleted." : "Question set was already removed.";
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.Error(ex, "Failed to delete local question set {QuestionSetId}", id);
+            status = $"Could not delete question set: {ex.Message}";
+        }
     }
 
     private async Task UseSet(Guid setId)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4 - 2026-08-18
+
+- Add a dedicated question-set delete action and report deletion failures visibly.
+- Show local question-set validation errors before creating a game instead of returning a generic backend error.
+
 ## 1.0.3 - 2026-08-18
 
 - Fix live player updates, answer-selection feedback, and player results after a question closes.
