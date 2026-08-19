@@ -9,3 +9,4 @@ public sealed record HostGameState(Guid Id,string JoinCode,string PlayerUrl,stri
 public sealed record CreateGameRequest(string VenueName,string GameName,QuestionSet QuestionSet,string OrderingMode,ScoringRequest Scoring);
 public sealed record ScoringRequest(int CorrectPoints,int IncorrectPoints,int FirstCorrectBonus,bool AllowAnswerChange=false);
 public sealed record QuestionSetAddRequest(QuestionSet QuestionSet,string OrderingMode);
+public sealed record QuestionSetAddResponse(Guid GameSetId,bool Reused);

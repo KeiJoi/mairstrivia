@@ -39,6 +39,6 @@ describe("authoritative game lifecycle",()=>{
     expect(()=>service.selectSet(owner,game.id,"bad")).toThrow(ServiceError);
     service.answer(p1.reconnectToken,set.questions[1].id,aCorrect.id);service.answer(p2.reconnectToken,set.questions[1].id,bIncorrect.id);
     const state=service.hostState(owner,game.id);expect(state.players.find(p=>p.displayName==="One")?.score).toBe(15);expect(state.players.find(p=>p.displayName==="Two")?.incorrectCount).toBe(1);
-    service.close(owner,game.id);expect(()=>service.answer(p1.reconnectToken,set.questions[1].id,aCorrect.id)).toThrow(ServiceError);
+    service.close(owner,game.id);const result=service.playerReconnect(p1.reconnectToken).game as any;expect(result.result).toMatchObject({correctAnswer:"Correct 1",selectedAnswer:"Correct 1",isCorrect:true,pointsAwarded:15});expect(()=>service.answer(p1.reconnectToken,set.questions[1].id,aCorrect.id)).toThrow(ServiceError);
   });
 });

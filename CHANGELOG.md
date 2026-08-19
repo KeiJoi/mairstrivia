@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3 - 2026-08-18
+
+- Fix live player updates, answer-selection feedback, and player results after a question closes.
+- Show host question previews and correctly attach/select a question set for an existing game.
+- Strengthen local question-set deletion, including stale duplicate configuration entries.
+
 ## 1.0.2 - 2026-08-18
 
 - Add a complete in-plugin question-set editor, including metadata, questions, answers, tags, categories, duplication, reordering, draft saves, validation, and reliable deletion.

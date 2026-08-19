@@ -13,6 +13,7 @@ public sealed class MainWindow : Window, IDisposable
     private TriviaApiClient? api;
     private string? accessToken;
     private HostGameState? game;
+    private TriviaQuestion? previewQuestion;
     private Guid? selectedSet, selectedQuestion;
     private QuestionSet? editingSet;
 
@@ -86,7 +87,7 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.Text("Create or manage a host game");
         Input("Venue Name", ref venue);
         Input("Game Name", ref gameName);
-        ImGui.Text("Question set: " + (selectedSet?.ToString() ?? "Select one in Question Sets"));
+        ImGui.Text("Question set: " + (editingSet?.Title ?? "Select one in Question Sets"));
         if (ImGui.RadioButton("In Order", plugin.Configuration.CompactUi)) plugin.Configuration.CompactUi = true;
         ImGui.SameLine();
         if (ImGui.RadioButton("Shuffle Once", !plugin.Configuration.CompactUi)) plugin.Configuration.CompactUi = false;
@@ -126,12 +127,31 @@ public sealed class MainWindow : Window, IDisposable
     {
         if (game is null) { ImGui.TextDisabled("No active game."); return; }
         ImGui.Text("Preview is host-only; the backend sends players only opaque choices.");
-        if (ImGui.Button("Preview Next")) _ = Command("questions/preview"); ImGui.SameLine();
+        if (ImGui.Button("Preview Next")) _ = PreviewNext(); ImGui.SameLine();
         if (ImGui.Button("Send Question")) _ = Command("questions/open"); ImGui.SameLine();
         if (ImGui.Button("Skip Question")) _ = Command("questions/skip"); ImGui.SameLine();
         if (ImGui.Button("Close / Results")) _ = Command("questions/close"); ImGui.SameLine();
         if (ImGui.Button("End Game")) _ = Command("end");
+        if (previewQuestion is not null)
+        {
+            ImGui.Separator();
+            ImGui.TextWrapped(previewQuestion.Question);
+            ImGui.TextColored(new Vector4(.45f, .89f, .55f, 1f), $"Correct: {previewQuestion.CorrectAnswer}");
+            ImGui.Text($"Incorrect answers available: {previewQuestion.IncorrectAnswers.Count} / 9");
+        }
         ImGui.Text("First correct responder and answer order are determined by the backend.");
+    }
+
+    private async Task PreviewNext()
+    {
+        try
+        {
+            if (api is null || accessToken is null || game is null) throw new Exception("No connected game.");
+            previewQuestion = await api.PostAsync<TriviaQuestion>($"/v1/games/{game.Id}/questions/preview", new { }, accessToken, null, CancellationToken.None);
+            game = await api.GetAsync<HostGameState>($"/v1/games/{game.Id}", accessToken, CancellationToken.None);
+            status = "Question previewed. Send it, skip it, or return to Questions later.";
+        }
+        catch (Exception ex) { status = ex.Message; }
     }
 
     private async Task Command(string suffix)
@@ -141,6 +161,7 @@ public sealed class MainWindow : Window, IDisposable
             if (api is null || accessToken is null || game is null) throw new Exception("No connected game.");
             await api.PostAsync<object>($"/v1/games/{game.Id}/" + suffix, new { }, accessToken, null, CancellationToken.None);
             game = await api.GetAsync<HostGameState>($"/v1/games/{game.Id}", accessToken, CancellationToken.None);
+            if (suffix is "questions/open" or "questions/skip" or "questions/close" or "end") previewQuestion = null;
             status = "Command sent.";
         }
         catch (Exception ex) { status = ex.Message; }
@@ -173,7 +194,7 @@ public sealed class MainWindow : Window, IDisposable
                 catch (Exception ex) { status = ex.Message; }
             }
             ImGui.SameLine();
-            if (game is not null && ImGui.SmallButton("Use##" + entry.Id)) _ = Command($"question-sets/{entry.Id}/select");
+            if (game is not null && ImGui.SmallButton("Use##" + entry.Id)) _ = UseSet(entry.Id);
             ImGui.SameLine();
             if (ImGui.SmallButton("Delete##" + entry.Id)) deleteId = entry.Id;
         }
@@ -181,9 +202,9 @@ public sealed class MainWindow : Window, IDisposable
         {
             try
             {
-                plugin.Library.Delete(id);
+                var deleted = plugin.Library.Delete(id);
                 if (selectedSet == id) { selectedSet = null; selectedQuestion = null; editingSet = null; }
-                status = "Question set deleted.";
+                status = deleted ? "Question set deleted." : "Question set was already removed.";
             }
             catch (Exception ex) { status = ex.Message; }
         }
@@ -271,6 +292,21 @@ public sealed class MainWindow : Window, IDisposable
     private void SaveValidSet(QuestionSet set)
     {
         try { plugin.Library.Save(set); status = "Question set validated and saved."; }
+        catch (Exception ex) { status = ex.Message; }
+    }
+
+    private async Task UseSet(Guid setId)
+    {
+        try
+        {
+            if (api is null || accessToken is null || game is null) throw new Exception("No connected game.");
+            var set = plugin.Library.Load(setId);
+            var added = await api.PostAsync<QuestionSetAddResponse>($"/v1/games/{game.Id}/question-sets", new QuestionSetAddRequest(set, plugin.Configuration.CompactUi ? "inOrder" : "shuffleOnce"), accessToken, null, CancellationToken.None);
+            game = await api.PostAsync<HostGameState>($"/v1/games/{game.Id}/question-sets/{added.GameSetId}/select", new { }, accessToken, null, CancellationToken.None);
+            SelectSet(set);
+            previewQuestion = null;
+            status = added.Reused ? $"Selected existing game copy of {set.Title}." : $"Added and selected {set.Title}.";
+        }
         catch (Exception ex) { status = ex.Message; }
     }
 
