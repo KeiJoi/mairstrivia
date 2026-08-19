@@ -9,6 +9,17 @@ beforeEach(()=>{service=new TriviaService(openDatabase(":memory:"),{databasePath
 async function host(name:string){return service.register(name,"a sufficiently strong password");}
 
 describe("authoritative game lifecycle",()=>{
+  it("stores a 0–15 second limit and automatically closes timed questions",async()=>{
+    const h=await host("timed-host"), owner=service.authenticate(h.accessToken);
+    expect(()=>service.createGame(owner,{venueName:"Venue",gameName:"Invalid",questionSet:set,orderingMode:"inOrder",questionTimeLimitSeconds:16})).toThrow(ServiceError);
+    const game=service.createGame(owner,{venueName:"Venue",gameName:"Timed",questionSet:set,orderingMode:"inOrder",questionTimeLimitSeconds:1});
+    expect(game.questionTimeLimitSeconds).toBe(1);
+    const player=service.join(game.joinCode,"Timer"); service.preview(owner,game.id); service.open(owner,game.id);
+    expect((service.playerReconnect(player.reconnectToken).game.question as any)?.closesAt).toBeTruthy();
+    await new Promise(resolve=>setTimeout(resolve,1100));
+    expect(service.hostState(owner,game.id).state).toBe("results");
+  });
+
   it("allows a host account password of any length",async()=>{
     const account=await service.register("short-password-host","");
     expect(service.authenticate(account.accessToken)).toMatch(/^[0-9a-f-]{36}$/);

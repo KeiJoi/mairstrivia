@@ -2,7 +2,7 @@
 
 ## Before players arrive
 
-Open `/mairstrivia`, connect to your backend, and log in. In Question Sets, choose the set you want to use. In Game, enter the required **Venue Name** and **Game Name**, choose scoring, select the set, and create the game. Share the displayed player URL or join code.
+Open `/mairstrivia`, connect to your backend, and log in. In Question Sets, choose the set you want to use. In Game, enter the required **Venue Name** and **Game Name**, choose scoring, select the set, choose a **Question time limit** from 0–15 seconds, and create the game. `0` means no limit and the host closes the question manually; a positive limit closes it automatically and shows players a countdown. Share the displayed player URL or join code.
 
 **In Order** uses questions in their stored order. **Shuffle Once** creates one random queue for the game and consumes it without repeats; skipping does not reshuffle the remaining questions.
 

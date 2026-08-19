@@ -32,7 +32,8 @@ function render() {
   if (state.state === "question_open" && state.question) {
     const selected = state.question.selectedAnswerId;
     const locked = state.question.answerSubmitted ? " disabled" : "";
-    content += `<h2>Question</h2><p>${escapeHtml(state.question.question)}</p><p class="muted">Choose one answer:</p>${state.question.choices.map(choice => `<button class="choice${selected === choice.id ? " selected" : ""}" data-id="${choice.id}"${locked}>${escapeHtml(choice.text)}</button>`).join("")}${state.question.answerSubmitted ? "<p class=\"muted\">Answer submitted. Waiting for results…</p>" : ""}`;
+    const remaining = state.question.closesAt ? Math.max(0, Math.ceil((Date.parse(state.question.closesAt) - Date.now()) / 1000)) : null;
+    content += `<h2>Question</h2><p>${escapeHtml(state.question.question)}</p>${remaining === null ? "" : `<p class="muted">Time remaining: ${remaining}s</p>`}<p class="muted">Choose one answer:</p>${state.question.choices.map(choice => `<button class="choice${selected === choice.id ? " selected" : ""}" data-id="${choice.id}"${locked}>${escapeHtml(choice.text)}</button>`).join("")}${state.question.answerSubmitted ? "<p class=\"muted\">Answer submitted. Waiting for results…</p>" : ""}`;
   } else if (state.state === "results" && state.result) {
     const result = state.result;
     const outcome = result.selectedAnswer === null ? "No answer submitted." : result.isCorrect ? "Correct!" : "Incorrect.";
@@ -55,6 +56,7 @@ function render() {
       alert(error.message);
     }
   });
+  if (state.state === "question_open" && state.question?.closesAt) setTimeout(render, 250);
 }
 
 async function refresh() {

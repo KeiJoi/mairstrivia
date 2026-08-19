@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 - 2026-08-19
+
+- Add a per-game question time limit from 0–15 seconds.
+- Automatically close timed questions server-side and show the player countdown.
+
 ## 1.1.0 - 2026-08-18
 
 - Add `.fftrivia` schema v2, allowing three to nine unique, non-empty incorrect answers per question.

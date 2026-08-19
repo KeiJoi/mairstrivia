@@ -21,6 +21,7 @@ const migrations = [
    CREATE INDEX answers_game_question_idx ON player_answers(game_id, question_id, receipt_order);
    CREATE TABLE game_history (id TEXT PRIMARY KEY, game_id TEXT NOT NULL REFERENCES games(id), event_type TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL);
    CREATE INDEX history_game_idx ON game_history(game_id, created_at);`
+  , `ALTER TABLE games ADD COLUMN question_time_limit_seconds INTEGER NOT NULL DEFAULT 0 CHECK(question_time_limit_seconds BETWEEN 0 AND 15);`
 ];
 
 export function openDatabase(path: string) {

@@ -10,6 +10,7 @@ public sealed class MainWindow : Window, IDisposable
 {
     private readonly Plugin plugin;
     private string serverPassword = "", userPassword = "", status = "Disconnected", venue = "", gameName = "", search = "", category = "", tag = "", importPath = "", newSetTitle = "Untitled Question Set";
+    private int questionTimeLimitSeconds;
     private TriviaApiClient? api;
     private string? accessToken;
     private HostGameState? game;
@@ -91,6 +92,8 @@ public sealed class MainWindow : Window, IDisposable
         if (ImGui.RadioButton("In Order", plugin.Configuration.CompactUi)) plugin.Configuration.CompactUi = true;
         ImGui.SameLine();
         if (ImGui.RadioButton("Shuffle Once", !plugin.Configuration.CompactUi)) plugin.Configuration.CompactUi = false;
+        ImGui.SliderInt("Question time limit (seconds)", ref questionTimeLimitSeconds, 0, 15);
+        ImGui.TextDisabled(questionTimeLimitSeconds == 0 ? "No time limit — close the question manually when ready." : "The question closes automatically when this timer expires.");
         if (ImGui.Button("Create Game")) _ = CreateGame();
         if (game is not null)
         {
@@ -100,6 +103,7 @@ public sealed class MainWindow : Window, IDisposable
             ImGui.TextWrapped($"Player URL: {game.PlayerUrl}");
             if (ImGui.Button("Copy Link")) ImGui.SetClipboardText(game.PlayerUrl);
             ImGui.Text($"State: {game.State}");
+            ImGui.Text(game.QuestionTimeLimitSeconds == 0 ? "Question timer: manual" : $"Question timer: {game.QuestionTimeLimitSeconds} seconds");
         }
     }
 
@@ -112,7 +116,7 @@ public sealed class MainWindow : Window, IDisposable
             var set = plugin.Library.Load(selectedSet.Value);
             var issues = QuestionSetValidator.Validate(set);
             if (issues.Count > 0) throw new QuestionSetFormatException("Question set cannot start a game:\n" + string.Join("\n", issues.Take(12).Select(issue => $"{issue.Path}: {issue.Message}")));
-            game = await api.PostAsync<HostGameState>("/v1/games", new CreateGameRequest(venue, gameName, set, plugin.Configuration.CompactUi ? "inOrder" : "shuffleOnce", new(plugin.Configuration.CorrectPoints, plugin.Configuration.IncorrectPoints, plugin.Configuration.FirstCorrectBonus)), accessToken, null, CancellationToken.None);
+            game = await api.PostAsync<HostGameState>("/v1/games", new CreateGameRequest(venue, gameName, set, plugin.Configuration.CompactUi ? "inOrder" : "shuffleOnce", new(plugin.Configuration.CorrectPoints, plugin.Configuration.IncorrectPoints, plugin.Configuration.FirstCorrectBonus), questionTimeLimitSeconds), accessToken, null, CancellationToken.None);
             status = "Game created.";
         }
         catch (Exception ex) { status = ex.Message; }
