@@ -3,7 +3,7 @@
     "Author": "Kei Joi",
     "Name": "Mair's Trivia",
     "InternalName": "MairsTrivia",
-    "AssemblyVersion": "1.0.1.0",
+    "AssemblyVersion": "1.0.2.0",
     "Description": "Host controls for Mair's Trivia. Open with /mairstrivia.",
     "Punchline": "Host and run venue trivia.",
     "RepoUrl": "https://github.com/KeiJoi/mairstrivia",
@@ -17,8 +17,8 @@
     "CategoryTags": [
       "social"
     ],
-    "LastUpdate": "1786590059",
-    "DownloadLinkInstall": "https://github.com/KeiJoi/mairstrivia/releases/download/v1.0.1/MairsTrivia-v1.0.1.zip",
-    "DownloadLinkUpdate": "https://github.com/KeiJoi/mairstrivia/releases/download/v1.0.1/MairsTrivia-v1.0.1.zip"
+    "LastUpdate": "1787105535",
+    "DownloadLinkInstall": "https://github.com/KeiJoi/mairstrivia/releases/download/v1.0.2/MairsTrivia-v1.0.2.zip",
+    "DownloadLinkUpdate": "https://github.com/KeiJoi/mairstrivia/releases/download/v1.0.2/MairsTrivia-v1.0.2.zip"
   }
 ]
