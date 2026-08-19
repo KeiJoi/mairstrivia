@@ -9,6 +9,12 @@ beforeEach(()=>{service=new TriviaService(openDatabase(":memory:"),{databasePath
 async function host(name:string){return service.register(name,"a sufficiently strong password");}
 
 describe("authoritative game lifecycle",()=>{
+  it("allows a host account password of any length",async()=>{
+    const account=await service.register("short-password-host","");
+    expect(service.authenticate(account.accessToken)).toMatch(/^[0-9a-f-]{36}$/);
+    expect((await service.login("short-password-host","")).user.username).toBe("short-password-host");
+  });
+
   it("isolates owners and requires server access separately from host identity",async()=>{
     expect(service.verifyServerAccess("server-secret")).toBe(true);expect(service.verifyServerAccess("wrong")).toBe(false);
     const a=await host("host-a"), b=await host("host-b"); const owner=service.authenticate(a.accessToken);
