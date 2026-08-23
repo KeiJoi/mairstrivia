@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.2 - 2026-08-23
+
+- Assign active-question layouts to players who join while a question is open.
+- Record answers immediately but award scores and statistics only when the question is revealed.
+
 ## 1.1.1 - 2026-08-19
 
 - Add a per-game question time limit from 0–15 seconds.
