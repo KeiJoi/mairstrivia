@@ -13,6 +13,8 @@ public sealed class MainWindow : Window, IDisposable
     private int questionTimeLimitSeconds;
     private bool cumulativeScoring;
     private DateTime nextGameRefreshUtc = DateTime.MinValue;
+    private DateTime nextSessionRefreshUtc = DateTime.MinValue;
+    private bool refreshingSession;
     private TriviaApiClient? api;
     private string? accessToken;
     private HostGameState? game;
@@ -24,10 +26,12 @@ public sealed class MainWindow : Window, IDisposable
     {
         this.plugin = plugin;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(700, 500), MaximumSize = new Vector2(1200, 1000) };
+        _ = RestoreSavedSession();
     }
 
     public override void Draw()
     {
+        if (accessToken is not null && DateTime.UtcNow >= nextSessionRefreshUtc) _ = RefreshSession("Session renewed.");
         if (game is not null && DateTime.UtcNow >= nextGameRefreshUtc) { nextGameRefreshUtc = DateTime.UtcNow.AddSeconds(2); _ = RefreshGameState(); }
         ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(1f, .329f, 0, 1));
         ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(1f, .169f, .839f, .55f));
@@ -55,12 +59,62 @@ public sealed class MainWindow : Window, IDisposable
         plugin.Configuration.Username = username;
         plugin.Configuration.Save();
         Input("User Password", ref userPassword, true);
+        ImGui.Text($"Saved backend: {plugin.Configuration.BackendUrl}");
+        ImGui.Text($"Saved username: {plugin.Configuration.Username}");
+        ImGui.TextDisabled(string.IsNullOrWhiteSpace(plugin.Configuration.RefreshToken) ? "Saved session: unavailable — log in to enable automatic reconnect." : "Saved session: available — reconnects automatically when the plugin opens.");
         ImGui.TextDisabled("Usernames are 3-64 letters, numbers, ., _, or -. Your account password has no length or complexity restrictions.");
         ImGui.TextDisabled("Passwords are used only for this connection and are not saved in plugin configuration.");
         ImGui.TextColored(new Vector4(1f, .17f, .84f, 1f), status);
         if (ImGui.Button("Connect / Login")) _ = Authenticate(false);
         ImGui.SameLine();
         if (ImGui.Button("Create Host Account")) _ = Authenticate(true);
+        ImGui.SameLine();
+        if (ImGui.Button("Reconnect Now")) _ = RestoreSavedSession();
+    }
+
+    private async Task RestoreSavedSession()
+    {
+        if (string.IsNullOrWhiteSpace(plugin.Configuration.RefreshToken) || string.IsNullOrWhiteSpace(plugin.Configuration.BackendUrl) || plugin.Configuration.BackendUrl == "https://")
+        {
+            status = "Not connected. Enter your server and login details in Settings.";
+            return;
+        }
+        try
+        {
+            api?.Dispose();
+            var url = new Uri(plugin.Configuration.BackendUrl);
+            if (url.Scheme is not "https" and not "http") throw new Exception("Saved backend URL must be HTTP(S).");
+            api = new TriviaApiClient(url);
+            await RefreshSession("Connected using saved session.");
+        }
+        catch (Exception ex)
+        {
+            accessToken = null;
+            status = $"Automatic reconnect failed: {ex.Message}";
+        }
+    }
+
+    private async Task RefreshSession(string successStatus)
+    {
+        if (refreshingSession || api is null || string.IsNullOrWhiteSpace(plugin.Configuration.RefreshToken)) return;
+        refreshingSession = true;
+        try
+        {
+            var refresh = await api.PostAsync<RefreshResponse>("/v1/auth/refresh", new { refreshToken = plugin.Configuration.RefreshToken }, null, null, CancellationToken.None);
+            accessToken = refresh.AccessToken;
+            plugin.Configuration.RefreshToken = refresh.RefreshToken;
+            plugin.Configuration.Save();
+            var me = await api.GetAsync<HostProfile>("/v1/me", accessToken, CancellationToken.None);
+            nextSessionRefreshUtc = DateTime.UtcNow.AddMinutes(10);
+            status = $"{successStatus} Connected as {me.Username}.";
+        }
+        catch (Exception ex)
+        {
+            accessToken = null;
+            nextSessionRefreshUtc = DateTime.UtcNow.AddSeconds(30);
+            status = $"Session reconnect failed: {ex.Message}";
+        }
+        finally { refreshingSession = false; }
     }
 
     private async Task Authenticate(bool register)
@@ -81,6 +135,7 @@ public sealed class MainWindow : Window, IDisposable
             plugin.Configuration.RefreshToken = login.RefreshToken;
             plugin.Configuration.Save();
             await api.GetAsync<HostProfile>("/v1/me", accessToken, CancellationToken.None);
+            nextSessionRefreshUtc = DateTime.UtcNow.AddMinutes(10);
             status = $"Connected as {login.User.Username} ({health.Service})";
         }
         catch (Exception ex) { status = ex.Message; }

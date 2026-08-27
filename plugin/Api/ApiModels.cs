@@ -4,6 +4,7 @@ namespace MairsTrivia.Plugin.Api;
 public sealed record HealthResponse(string Status,string Service,string ApiVersion,DateTimeOffset Timestamp);
 public sealed record HostProfile(Guid Id,string Username,DateTimeOffset CreatedAt);
 public sealed record LoginResponse(string AccessToken,string RefreshToken,HostProfile User);
+public sealed record RefreshResponse(string AccessToken,string RefreshToken);
 public sealed record PlayerScore(Guid Id,string DisplayName,int Score,int CorrectCount,int IncorrectCount);
 public sealed record CumulativePlayerScore(string DisplayName,int Score);
 public sealed record HostGameState(Guid Id,string JoinCode,string PlayerUrl,string VenueName,string GameName,string State,ScoringRequest Scoring,int QuestionTimeLimitSeconds,bool CumulativeScoring,IReadOnlyList<CumulativePlayerScore> CumulativePlayers,Guid? ActiveSetId,Guid? ActiveQuestionId,DateTimeOffset? ActiveQuestionClosesAt,IReadOnlyList<PlayerScore> Players);

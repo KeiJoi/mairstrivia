@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2 - 2026-08-27
+
+- Restore saved host sessions automatically when the plugin opens.
+- Renew host access sessions proactively and clarify connection details in Settings.
+
 ## 1.2.1 - 2026-08-27
 
 - Make question-set removal immediate and reliable from both library controls.
