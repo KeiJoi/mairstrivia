@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 - 2026-08-27
+
+- Make question-set removal immediate and reliable from both library controls.
+- Rename the destructive question-set action to `OMFG PLEASE GO AWAY!`.
+
 ## 1.2.0 - 2026-08-27
 
 - Stabilize player answer controls while the timer is counting down.

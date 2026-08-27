@@ -211,27 +211,25 @@ public sealed class MainWindow : Window, IDisposable
             catch (Exception ex) { status = ex.Message; }
         }
 
-        Guid? deleteId = null;
         foreach (var entry in plugin.Library.Search(search, category, tag).ToList())
         {
+            ImGui.PushID(entry.Id.ToString());
             var selected = selectedSet == entry.Id;
-            if (ImGui.Selectable($"{entry.Title}##{entry.Id}", selected))
+            if (ImGui.Selectable(entry.Title, selected, size: new Vector2(250, 0)))
             {
                 try { SelectSet(plugin.Library.Load(entry.Id)); status = editingSet!.Description; }
                 catch (Exception ex) { status = ex.Message; }
             }
             ImGui.SameLine();
-            if (game is not null && ImGui.SmallButton("Use##" + entry.Id)) _ = UseSet(entry.Id);
+            if (game is not null && ImGui.SmallButton("Use")) _ = UseSet(entry.Id);
             ImGui.SameLine();
-            if (ImGui.SmallButton("Delete##" + entry.Id)) deleteId = entry.Id;
-        }
-        if (deleteId is { } id)
-        {
-            try
+            if (ImGui.Button("OMFG PLEASE GO AWAY!"))
             {
-                DeleteSet(id);
+                DeleteSet(entry.Id);
+                ImGui.PopID();
+                return;
             }
-            catch (Exception ex) { status = ex.Message; }
+            ImGui.PopID();
         }
 
         if (editingSet is not null) DrawSetEditor(editingSet);
@@ -256,7 +254,7 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.SameLine();
         if (ImGui.Button("Validate and Save Set")) SaveValidSet(set);
         ImGui.SameLine();
-        if (ImGui.Button("Delete This Question Set")) { DeleteSet(set.Id); return; }
+        if (ImGui.Button("OMFG PLEASE GO AWAY!")) { DeleteSet(set.Id); return; }
         ImGui.SameLine();
         if (ImGui.Button("Add Question"))
         {
@@ -351,7 +349,7 @@ public sealed class MainWindow : Window, IDisposable
         try
         {
             var deleted = plugin.Library.Delete(id);
-            if (selectedSet == id) { selectedSet = null; selectedQuestion = null; editingSet = null; }
+            if (selectedSet == id || editingSet?.Id == id) { selectedSet = null; selectedQuestion = null; editingSet = null; }
             status = deleted ? "Question set deleted." : "Question set was already removed.";
         }
         catch (Exception ex)

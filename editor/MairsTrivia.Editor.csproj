@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>MairsTrivia.Editor</AssemblyName><Version>1.2.0</Version><Company>Kei Joi</Company><Product>Mair's Trivia Question Set Editor</Product></PropertyGroup>
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>MairsTrivia.Editor</AssemblyName><Version>1.2.1</Version><Company>Kei Joi</Company><Product>Mair's Trivia Question Set Editor</Product></PropertyGroup>
   <ItemGroup><ProjectReference Include="..\shared\MairsTrivia.QuestionSets\MairsTrivia.QuestionSets.csproj" /></ItemGroup>
 </Project>
