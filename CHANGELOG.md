@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 - 2026-08-27
+
+- Stabilize player answer controls while the timer is counting down.
+- Refresh the host player list automatically as players join from the web link.
+- Extend question limits to 20 seconds and add opt-in cumulative scoring across games.
+- Make local question-set deletion resilient to stale library entries.
+
 ## 1.1.2 - 2026-08-23
 
 - Assign active-question layouts to players who join while a question is open.

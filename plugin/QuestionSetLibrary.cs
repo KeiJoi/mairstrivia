@@ -11,7 +11,17 @@ public sealed class QuestionSetLibrary
     public QuestionSet Load(Guid id) { var e=config.QuestionSets.Single(x=>x.Id==id); return QuestionSetSerializer.Load(Path.Combine(directory,e.FileName)); }
     public void Save(QuestionSet set) { RequireValid(set); var e=config.QuestionSets.SingleOrDefault(x=>x.Id==set.Id); var name=e?.FileName??$"{set.Id}{QuestionSetFormat.Extension}"; QuestionSetSerializer.Save(Path.Combine(directory,name),set); Upsert(set,name); }
     public void SaveDraft(QuestionSet set) { RequireValidMetadata(set); var e=config.QuestionSets.SingleOrDefault(x=>x.Id==set.Id); var name=e?.FileName??$"{set.Id}{QuestionSetFormat.Extension}"; QuestionSetSerializer.Save(Path.Combine(directory,name),set); Upsert(set,name); }
-    public bool Delete(Guid id) { var entries=config.QuestionSets.Where(x=>x.Id==id).ToList(); if(entries.Count==0) return false; foreach(var entry in entries){var path=Path.Combine(directory,Path.GetFileName(entry.FileName));if(File.Exists(path))File.Delete(path);} config.QuestionSets.RemoveAll(x=>x.Id==id);config.Save();return !config.QuestionSets.Any(x=>x.Id==id); }
+    public bool Delete(Guid id)
+    {
+        var entries=config.QuestionSets.Where(x=>x.Id==id).ToList();
+        var paths=entries.Select(entry=>Path.Combine(directory,Path.GetFileName(entry.FileName))).Append(Path.Combine(directory,$"{id}{QuestionSetFormat.Extension}")).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var existed=entries.Count>0||paths.Any(File.Exists);
+        config.QuestionSets.RemoveAll(x=>x.Id==id);
+        config.Save();
+        foreach(var path in paths) if(File.Exists(path)) File.Delete(path);
+        if(config.QuestionSets.Any(x=>x.Id==id)||paths.Any(File.Exists)) throw new IOException("The question set could not be completely removed.");
+        return existed;
+    }
     private static void RequireValidMetadata(QuestionSet set) { if(set.Id==Guid.Empty||string.IsNullOrWhiteSpace(set.Title)) throw new QuestionSetFormatException("Question set title and ID are required."); }
     private static void RequireValid(QuestionSet set) { var issues=QuestionSetValidator.Validate(set); if(issues.Count>0) throw new QuestionSetFormatException(string.Join("\n",issues.Select(x=>$"{x.Path}: {x.Message}"))); }
     private void Upsert(QuestionSet set,string file) { var entry=config.QuestionSets.SingleOrDefault(x=>x.Id==set.Id); if(entry is null){entry=new();config.QuestionSets.Add(entry);} entry.Id=set.Id;entry.FileName=file;entry.Title=set.Title;entry.Description=set.Description;entry.Categories=[..set.Categories];entry.Tags=[..set.Tags];config.Save(); }

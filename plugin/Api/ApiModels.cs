@@ -5,8 +5,9 @@ public sealed record HealthResponse(string Status,string Service,string ApiVersi
 public sealed record HostProfile(Guid Id,string Username,DateTimeOffset CreatedAt);
 public sealed record LoginResponse(string AccessToken,string RefreshToken,HostProfile User);
 public sealed record PlayerScore(Guid Id,string DisplayName,int Score,int CorrectCount,int IncorrectCount);
-public sealed record HostGameState(Guid Id,string JoinCode,string PlayerUrl,string VenueName,string GameName,string State,ScoringRequest Scoring,int QuestionTimeLimitSeconds,Guid? ActiveSetId,Guid? ActiveQuestionId,DateTimeOffset? ActiveQuestionClosesAt,IReadOnlyList<PlayerScore> Players);
-public sealed record CreateGameRequest(string VenueName,string GameName,QuestionSet QuestionSet,string OrderingMode,ScoringRequest Scoring,int QuestionTimeLimitSeconds);
+public sealed record CumulativePlayerScore(string DisplayName,int Score);
+public sealed record HostGameState(Guid Id,string JoinCode,string PlayerUrl,string VenueName,string GameName,string State,ScoringRequest Scoring,int QuestionTimeLimitSeconds,bool CumulativeScoring,IReadOnlyList<CumulativePlayerScore> CumulativePlayers,Guid? ActiveSetId,Guid? ActiveQuestionId,DateTimeOffset? ActiveQuestionClosesAt,IReadOnlyList<PlayerScore> Players);
+public sealed record CreateGameRequest(string VenueName,string GameName,QuestionSet QuestionSet,string OrderingMode,ScoringRequest Scoring,int QuestionTimeLimitSeconds,bool CumulativeScoring);
 public sealed record ScoringRequest(int CorrectPoints,int IncorrectPoints,int FirstCorrectBonus,bool AllowAnswerChange=false);
 public sealed record QuestionSetAddRequest(QuestionSet QuestionSet,string OrderingMode);
 public sealed record QuestionSetAddResponse(Guid GameSetId,bool Reused);

@@ -11,6 +11,8 @@ public sealed class MainWindow : Window, IDisposable
     private readonly Plugin plugin;
     private string serverPassword = "", userPassword = "", status = "Disconnected", venue = "", gameName = "", search = "", category = "", tag = "", importPath = "", newSetTitle = "Untitled Question Set";
     private int questionTimeLimitSeconds;
+    private bool cumulativeScoring;
+    private DateTime nextGameRefreshUtc = DateTime.MinValue;
     private TriviaApiClient? api;
     private string? accessToken;
     private HostGameState? game;
@@ -26,6 +28,7 @@ public sealed class MainWindow : Window, IDisposable
 
     public override void Draw()
     {
+        if (game is not null && DateTime.UtcNow >= nextGameRefreshUtc) { nextGameRefreshUtc = DateTime.UtcNow.AddSeconds(2); _ = RefreshGameState(); }
         ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(1f, .329f, 0, 1));
         ImGui.PushStyleColor(ImGuiCol.Header, new Vector4(1f, .169f, .839f, .55f));
         if (ImGui.BeginTabBar("tabs"))
@@ -92,8 +95,10 @@ public sealed class MainWindow : Window, IDisposable
         if (ImGui.RadioButton("In Order", plugin.Configuration.CompactUi)) plugin.Configuration.CompactUi = true;
         ImGui.SameLine();
         if (ImGui.RadioButton("Shuffle Once", !plugin.Configuration.CompactUi)) plugin.Configuration.CompactUi = false;
-        ImGui.SliderInt("Question time limit (seconds)", ref questionTimeLimitSeconds, 0, 15);
+        ImGui.SliderInt("Question time limit (seconds)", ref questionTimeLimitSeconds, 0, 20);
         ImGui.TextDisabled(questionTimeLimitSeconds == 0 ? "No time limit — close the question manually when ready." : "The question closes automatically when this timer expires.");
+        ImGui.Checkbox("Cumulative scoring across games", ref cumulativeScoring);
+        ImGui.TextDisabled("Keeps each game leaderboard while also showing a combined total for this host's cumulative games.");
         if (ImGui.Button("Create Game")) _ = CreateGame();
         if (game is not null)
         {
@@ -116,7 +121,7 @@ public sealed class MainWindow : Window, IDisposable
             var set = plugin.Library.Load(selectedSet.Value);
             var issues = QuestionSetValidator.Validate(set);
             if (issues.Count > 0) throw new QuestionSetFormatException("Question set cannot start a game:\n" + string.Join("\n", issues.Take(12).Select(issue => $"{issue.Path}: {issue.Message}")));
-            game = await api.PostAsync<HostGameState>("/v1/games", new CreateGameRequest(venue, gameName, set, plugin.Configuration.CompactUi ? "inOrder" : "shuffleOnce", new(plugin.Configuration.CorrectPoints, plugin.Configuration.IncorrectPoints, plugin.Configuration.FirstCorrectBonus), questionTimeLimitSeconds), accessToken, null, CancellationToken.None);
+            game = await api.PostAsync<HostGameState>("/v1/games", new CreateGameRequest(venue, gameName, set, plugin.Configuration.CompactUi ? "inOrder" : "shuffleOnce", new(plugin.Configuration.CorrectPoints, plugin.Configuration.IncorrectPoints, plugin.Configuration.FirstCorrectBonus), questionTimeLimitSeconds, cumulativeScoring), accessToken, null, CancellationToken.None);
             status = "Game created.";
         }
         catch (Exception ex) { status = ex.Message; }
@@ -127,6 +132,22 @@ public sealed class MainWindow : Window, IDisposable
         if (game is null) { ImGui.TextDisabled("Create or resume a game first."); return; }
         ImGui.Text($"Players: {game.Players.Count}");
         foreach (var p in game.Players) ImGui.BulletText($"{p.DisplayName}: {p.Score} points — ✓ {p.CorrectCount} / ✗ {p.IncorrectCount}");
+        if (game.CumulativeScoring)
+        {
+            ImGui.Separator();
+            ImGui.Text("Cumulative leaderboard");
+            foreach (var p in game.CumulativePlayers) ImGui.BulletText($"{p.DisplayName}: {p.Score} total points");
+        }
+    }
+
+    private async Task RefreshGameState()
+    {
+        try
+        {
+            if (api is null || accessToken is null || game is null) return;
+            game = await api.GetAsync<HostGameState>($"/v1/games/{game.Id}", accessToken, CancellationToken.None);
+        }
+        catch (Exception ex) { status = ex.Message; }
     }
 
     private void DrawQuestions()

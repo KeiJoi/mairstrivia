@@ -1,7 +1,7 @@
 const app = document.querySelector("#app");
 const code = location.pathname.split("/").pop();
 let token = localStorage.getItem(`mairs:${code}`);
-let state, socket, reconnectTimer;
+let state, socket, reconnectTimer, countdownTimer;
 
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", "\"": "&quot;" })[character]);
 const request = async (path, body) => {
@@ -12,6 +12,7 @@ const request = async (path, body) => {
 };
 
 function render() {
+  clearInterval(countdownTimer);
   if (!state) {
     app.innerHTML = `<h1>Join trivia</h1><p class="muted">Enter your name to join this game.</p><form id="join"><input required maxlength="48" placeholder="Display name" aria-label="Display name"><button>Join game</button></form>`;
     document.querySelector("#join").onsubmit = async event => {
@@ -32,8 +33,7 @@ function render() {
   if (state.state === "question_open" && state.question) {
     const selected = state.question.selectedAnswerId;
     const locked = state.question.answerSubmitted ? " disabled" : "";
-    const remaining = state.question.closesAt ? Math.max(0, Math.ceil((Date.parse(state.question.closesAt) - Date.now()) / 1000)) : null;
-    content += `<h2>Question</h2><p>${escapeHtml(state.question.question)}</p>${remaining === null ? "" : `<p class="muted">Time remaining: ${remaining}s</p>`}<p class="muted">Choose one answer:</p>${state.question.choices.map(choice => `<button class="choice${selected === choice.id ? " selected" : ""}" data-id="${choice.id}"${locked}>${escapeHtml(choice.text)}</button>`).join("")}${state.question.answerSubmitted ? "<p class=\"muted\">Answer submitted. Waiting for results…</p>" : ""}`;
+    content += `<h2>Question</h2><p>${escapeHtml(state.question.question)}</p>${state.question.closesAt ? `<p class="muted">Time remaining: <span id="countdown"></span></p>` : ""}<p class="muted">Choose one answer:</p>${state.question.choices.map(choice => `<button class="choice${selected === choice.id ? " selected" : ""}" data-id="${choice.id}"${locked}>${escapeHtml(choice.text)}</button>`).join("")}${state.question.answerSubmitted ? "<p class=\"muted\">Answer submitted. Waiting for results…</p>" : ""}`;
   } else if (state.state === "results" && state.result) {
     const result = state.result;
     const outcome = result.selectedAnswer === null ? "No answer submitted." : result.isCorrect ? "Correct!" : "Incorrect.";
@@ -56,7 +56,10 @@ function render() {
       alert(error.message);
     }
   });
-  if (state.state === "question_open" && state.question?.closesAt) setTimeout(render, 250);
+  if (state.state === "question_open" && state.question?.closesAt) {
+    const updateCountdown = () => { const countdown = document.querySelector("#countdown"); if (countdown) countdown.textContent = `${Math.max(0, Math.ceil((Date.parse(state.question.closesAt) - Date.now()) / 1000))}s`; };
+    updateCountdown(); countdownTimer = setInterval(updateCountdown, 250);
+  }
 }
 
 async function refresh() {

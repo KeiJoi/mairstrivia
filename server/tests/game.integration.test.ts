@@ -11,13 +11,25 @@ async function host(name:string){return service.register(name,"a sufficiently st
 describe("authoritative game lifecycle",()=>{
   it("stores a 0–15 second limit and automatically closes timed questions",async()=>{
     const h=await host("timed-host"), owner=service.authenticate(h.accessToken);
-    expect(()=>service.createGame(owner,{venueName:"Venue",gameName:"Invalid",questionSet:set,orderingMode:"inOrder",questionTimeLimitSeconds:16})).toThrow(ServiceError);
-    const game=service.createGame(owner,{venueName:"Venue",gameName:"Timed",questionSet:set,orderingMode:"inOrder",questionTimeLimitSeconds:1});
-    expect(game.questionTimeLimitSeconds).toBe(1);
-    const player=service.join(game.joinCode,"Timer"); service.preview(owner,game.id); service.open(owner,game.id);
+    expect(()=>service.createGame(owner,{venueName:"Venue",gameName:"Invalid",questionSet:set,orderingMode:"inOrder",questionTimeLimitSeconds:21})).toThrow(ServiceError);
+    const game=service.createGame(owner,{venueName:"Venue",gameName:"Timed",questionSet:set,orderingMode:"inOrder",questionTimeLimitSeconds:20});
+    expect(game.questionTimeLimitSeconds).toBe(20);
+    const quickGame=service.createGame(owner,{venueName:"Venue",gameName:"Quick",questionSet:set,orderingMode:"inOrder",questionTimeLimitSeconds:1});
+    const player=service.join(quickGame.joinCode,"Timer"); service.preview(owner,quickGame.id); service.open(owner,quickGame.id);
     expect((service.playerReconnect(player.reconnectToken).game.question as any)?.closesAt).toBeTruthy();
     await new Promise(resolve=>setTimeout(resolve,1100));
-    expect(service.hostState(owner,game.id).state).toBe("results");
+    expect(service.hostState(owner,quickGame.id).state).toBe("results");
+  });
+
+  it("keeps game scores separate while exposing an opt-in cumulative leaderboard",async()=>{
+    const h=await host("cumulative-host"), owner=service.authenticate(h.accessToken);
+    const first=service.createGame(owner,{venueName:"Venue",gameName:"First",questionSet:set,orderingMode:"inOrder",cumulativeScoring:true,scoring:{correctPoints:10,firstCorrectBonus:0}});
+    const firstPlayer=service.join(first.joinCode,"Champion"); service.preview(owner,first.id); service.open(owner,first.id);
+    const firstQuestion=service.playerReconnect(firstPlayer.reconnectToken).game.question as any; service.answer(firstPlayer.reconnectToken,firstQuestion.id,firstQuestion.choices.find((x:any)=>x.text==="Correct 0").id); service.close(owner,first.id);
+    const second=service.createGame(owner,{venueName:"Venue",gameName:"Second",questionSet:set,orderingMode:"inOrder",cumulativeScoring:true,scoring:{correctPoints:20,firstCorrectBonus:0}});
+    const secondPlayer=service.join(second.joinCode,"Champion"); service.preview(owner,second.id); service.open(owner,second.id);
+    const secondQuestion=service.playerReconnect(secondPlayer.reconnectToken).game.question as any; service.answer(secondPlayer.reconnectToken,secondQuestion.id,secondQuestion.choices.find((x:any)=>x.text==="Correct 0").id); service.close(owner,second.id);
+    const state=service.hostState(owner,second.id); expect(state.players[0].score).toBe(20); expect(state.cumulativePlayers).toContainEqual({displayName:"Champion",score:30});
   });
 
   it("allows a host account password of any length",async()=>{
