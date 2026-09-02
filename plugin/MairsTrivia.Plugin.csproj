@@ -1,6 +1,6 @@
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>MairsTrivia</AssemblyName><Version>1.2.2</Version>
+    <TargetFramework>net10.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>MairsTrivia</AssemblyName><Version>1.2.3</Version>
     <Author>Kei Joi</Author><Name>Mair's Trivia</Name><Punchline>Host and run venue trivia.</Punchline>
     <Description>Host controls for Mair's Trivia. Open with /mairstrivia.</Description><ApplicableVersion>any</ApplicableVersion>
     <RepoUrl>https://github.com/KeiJoi/mairstrivia</RepoUrl><Tags>trivia;venue;social</Tags><DalamudApiLevel>15</DalamudApiLevel>

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.3 - 2026-09-02
+
+- Add an enabled-by-default player notification sound for newly opened questions.
+- Add a persistent player-page sound on/off control.
+
 ## 1.2.2 - 2026-08-27
 
 - Restore saved host sessions automatically when the plugin opens.
