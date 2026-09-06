@@ -21,17 +21,20 @@ export class ServiceError extends Error { constructor(public status: number, pub
 export interface Scoring { correctPoints: number; incorrectPoints: number; firstCorrectBonus: number; secondCorrectBonus?: number; thirdCorrectBonus?: number; allowAnswerChange: boolean; timeBonusMultiplier?: number; }
 const defaultScoring: Scoring = { correctPoints: 100, incorrectPoints: 0, firstCorrectBonus: 50, allowAnswerChange: false, timeBonusMultiplier: 5 };
 
-export interface LeaderboardEntry { rank: number; id: string; displayName: string; score: number; }
+// correctCount/incorrectCount ride along on every leaderboard entry (game AND series) so "N / M correct" can be
+// shown next to score without the client ever computing it from raw per-question rows — answered = correct + incorrect,
+// deliberately never a source-question-count denominator (a player who joined late or missed a question is not "behind").
+export interface LeaderboardEntry { rank: number; id: string; displayName: string; score: number; correctCount: number; incorrectCount: number; }
 export interface FirstResponder { playerId: string; displayName: string; }
 export interface QuestionResult { questionId: string; correctAnswer: string; firstResponder: FirstResponder | null; }
 export interface GameCompleteResult { winners: LeaderboardEntry[]; standings: LeaderboardEntry[]; seriesId: string | null; seriesStandings: LeaderboardEntry[] | null; }
 export interface SeriesCompleteResult { champions: LeaderboardEntry[]; standings: LeaderboardEntry[]; }
 
 /** Dense ranking: ties occupy one place, the next distinct score takes the next place. Never join-time or name order. */
-function denseRank(entries: { id: string; displayName: string; score: number }[]): LeaderboardEntry[] {
+function denseRank(entries: { id: string; displayName: string; score: number; correctCount: number; incorrectCount: number }[]): LeaderboardEntry[] {
   const sorted = [...entries].sort((a, b) => b.score - a.score || a.displayName.toLocaleLowerCase().localeCompare(b.displayName.toLocaleLowerCase()) || a.id.localeCompare(b.id));
   let rank = 0, previousScore: number | null = null;
-  return sorted.map((entry) => { if (previousScore === null || entry.score !== previousScore) { rank++; previousScore = entry.score; } return { rank, id: entry.id, displayName: entry.displayName, score: entry.score }; });
+  return sorted.map((entry) => { if (previousScore === null || entry.score !== previousScore) { rank++; previousScore = entry.score; } return { rank, id: entry.id, displayName: entry.displayName, score: entry.score, correctCount: entry.correctCount, incorrectCount: entry.incorrectCount }; });
 }
 
 export class TriviaService {
@@ -129,7 +132,7 @@ export class TriviaService {
   }
 
   // A game-level kick stops further play but a kicked player's earned score still stands in that game's own history/standings (only Series-level removal excludes someone from standings).
-  private leaderboardForGame(gameId: string): LeaderboardEntry[] { return denseRank((this.db.prepare("SELECT id, display_name AS displayName, score FROM players WHERE game_id=?").all(gameId) as any[]).map((p) => ({ id: p.id, displayName: p.displayName, score: p.score }))); }
+  private leaderboardForGame(gameId: string): LeaderboardEntry[] { return denseRank((this.db.prepare("SELECT id, display_name AS displayName, score, correct_count AS correctCount, incorrect_count AS incorrectCount FROM players WHERE game_id=?").all(gameId) as any[]).map((p) => ({ id: p.id, displayName: p.displayName, score: p.score, correctCount: p.correctCount, incorrectCount: p.incorrectCount }))); }
 
   hostState(owner: string, id: string) {
     const g = this.gameForOwner(owner, id);
@@ -453,21 +456,39 @@ export class TriviaService {
     this.seriesHistory(id, "series.created", { name: name.trim() });
     return this.seriesState(owner, id);
   }
+  /** Aggregates score AND correct/incorrect counts across every Game this Series participant has ever been mapped
+   * into (via series_game_players -> players). A Game-level score adjustment already lives inside players.score, so
+   * it flows into this SUM automatically — there is no separate Series-level score store to double-count against. */
   seriesStandings(seriesId: string): LeaderboardEntry[] {
     const rows = this.db.prepare(`
-      SELECT sp.id AS id, sp.display_name AS displayName, COALESCE(SUM(p.score), 0) AS score
+      SELECT sp.id AS id, sp.display_name AS displayName, COALESCE(SUM(p.score), 0) AS score,
+             COALESCE(SUM(p.correct_count), 0) AS correctCount, COALESCE(SUM(p.incorrect_count), 0) AS incorrectCount
         FROM series_participants sp
         LEFT JOIN series_game_players m ON m.series_participant_id = sp.id
         LEFT JOIN players p ON p.id = m.player_id
        WHERE sp.series_id = ? AND sp.removed_at IS NULL
-       GROUP BY sp.id, sp.display_name`).all(seriesId) as { id: string; displayName: string; score: number }[];
+       GROUP BY sp.id, sp.display_name`).all(seriesId) as { id: string; displayName: string; score: number; correctCount: number; incorrectCount: number }[];
     return denseRank(rows);
+  }
+  /** Cumulative per-participant stats for the "Series Players" roster — distinct from seriesStandings' ranked
+   * projection: this always lists every non-removed participant (even one who hasn't played a Game yet, at 0/0/0),
+   * unsorted by rank, alongside their removal state for the host's remove control. */
+  private seriesParticipantStats(seriesId: string) {
+    return this.db.prepare(`
+      SELECT sp.id AS id, sp.display_name AS displayName, sp.removed_at AS removedAt,
+             COALESCE(SUM(p.score), 0) AS score, COALESCE(SUM(p.correct_count), 0) AS correctCount, COALESCE(SUM(p.incorrect_count), 0) AS incorrectCount
+        FROM series_participants sp
+        LEFT JOIN series_game_players m ON m.series_participant_id = sp.id
+        LEFT JOIN players p ON p.id = m.player_id
+       WHERE sp.series_id = ?
+       GROUP BY sp.id, sp.display_name, sp.removed_at
+       ORDER BY sp.joined_at`).all(seriesId) as { id: string; displayName: string; removedAt: string | null; score: number; correctCount: number; incorrectCount: number }[];
   }
   seriesState(owner: string, id: string) {
     const s = this.seriesForOwner(owner, id);
     const games = this.db.prepare("SELECT g.id,g.game_name AS gameName,g.state,sg.sequence_ordinal AS sequenceOrdinal FROM series_games sg JOIN games g ON g.id=sg.game_id WHERE sg.series_id=? ORDER BY sg.sequence_ordinal").all(id) as any[];
-    const participants = this.db.prepare("SELECT id,display_name AS displayName,removed_at AS removedAt FROM series_participants WHERE series_id=? ORDER BY joined_at").all(id) as any[];
-    return { id: s.id, name: s.name, state: s.state, joinCode: s.join_code, currentGameId: s.current_game_id, games, participants: participants.map((p) => ({ id: p.id, displayName: p.displayName, removed: !!p.removedAt })), standings: this.seriesStandings(id) };
+    const participants = this.seriesParticipantStats(id).map((p) => ({ id: p.id, displayName: p.displayName, removed: !!p.removedAt, score: p.score, correctCount: p.correctCount, incorrectCount: p.incorrectCount }));
+    return { id: s.id, name: s.name, state: s.state, joinCode: s.join_code, playerUrl: `${this.config.publicBaseUrl}/play/${s.join_code}`, currentGameId: s.current_game_id, games, participants, standings: this.seriesStandings(id) };
   }
   startNextGameInSeries(owner: string, seriesId: string, input: { venueName: string; gameName: string; questionSet: QuestionSet; orderingMode: "inOrder" | "shuffleOnce"; scoring?: Partial<Scoring>; questionTimeLimitSeconds?: number }) {
     const s = this.seriesForOwner(owner, seriesId);

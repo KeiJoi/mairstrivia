@@ -47,7 +47,7 @@ describe("Game Series", () => {
 
     playThrough(owner, game1.id, qid1, carol.reconnectToken, "Right", true); // the only question in Game 1; Dave joined too late to answer it
     const game1Complete = service.end(owner, game1.id);
-    expect(game1Complete.winners).toEqual([{ rank: 1, id: expect.any(String), displayName: "Carol", score: 100 }]);
+    expect(game1Complete.winners).toEqual([{ rank: 1, id: expect.any(String), displayName: "Carol", score: 100, correctCount: 1, incorrectCount: 0 }]);
     expect(game1Complete.seriesId).toBe(series.id);
 
     // Carol's SAME token shows Game Complete + series standings + waiting-for-next-game, still no rejoin.

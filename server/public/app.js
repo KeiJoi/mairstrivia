@@ -28,7 +28,10 @@ function renderLeaderboard(title, entries, highlightName) {
   const rows = entries.map((entry) => {
     const medal = medalFor(entry.rank);
     const isSelf = highlightName && entry.displayName === highlightName;
-    return `<li class="leaderboard-row${isSelf ? " self" : ""}"><span class="leaderboard-rank">${medal ? `<span class="medal" aria-hidden="true">${medal}</span>` : `#${entry.rank}`}</span><span class="leaderboard-name">${escapeHtml(entry.displayName)}</span><span class="leaderboard-score">${entry.score}</span></li>`;
+    // answered = correct + incorrect, never a source-question-count denominator (late joiners/missed questions are not "behind").
+    const answered = (entry.correctCount ?? 0) + (entry.incorrectCount ?? 0);
+    const correctAnswered = answered > 0 ? `<span class="leaderboard-correct">${entry.correctCount ?? 0} / ${answered} correct</span>` : "";
+    return `<li class="leaderboard-row${isSelf ? " self" : ""}"><span class="leaderboard-rank">${medal ? `<span class="medal" aria-hidden="true">${medal}</span>` : `#${entry.rank}`}</span><span class="leaderboard-name">${escapeHtml(entry.displayName)}</span>${correctAnswered}<span class="leaderboard-score">${entry.score}</span></li>`;
   }).join("");
   return `<section class="leaderboard-section"><h3>${escapeHtml(title)}</h3><ul class="leaderboard" role="list">${rows}</ul></section>`;
 }

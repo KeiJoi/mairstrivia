@@ -8,6 +8,8 @@
 .leaderboard-rank{min-width:2.4em;font-weight:700;color:#c7bdc1;text-align:center}
 .leaderboard-rank .medal{font-size:1.3em}
 .leaderboard-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.leaderboard-score{font-weight:700;color:var(--pink)}
+.leaderboard-correct{color:#c7bdc1;font-size:.85em;white-space:nowrap}
+.leaderboard-score{font-weight:700;color:var(--pink);white-space:nowrap}
+@media (max-width:420px){.leaderboard-row{flex-wrap:wrap}.leaderboard-correct{flex-basis:100%;order:3;padding-left:2.4em}}
 .podium{text-align:center;margin-top:8px}.podium-medal{font-size:3em;margin:0}.podium-names{font-size:1.2em;font-weight:700;color:var(--pink)}
 .waiting-next{margin-top:16px;font-style:italic}
