@@ -19,6 +19,7 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run validate:schema
+      - run: npm run validate:browser
   dotnet:
     runs-on: windows-latest
     steps:

@@ -28,7 +28,75 @@ const migrations = [
      DROP TABLE games;
      ALTER TABLE games_rebuilt RENAME TO games;
      CREATE INDEX games_owner_idx ON games(owner_user_id); CREATE INDEX games_join_idx ON games(join_code);`
+
+  // --- Phase 2: question occurrences (repeat/revisit + cross-set collision fix) ---
+  // Every actual ASKING of a question (first time or a later Repeat) gets its own occurrence row.
+  // Player layouts/answers key on occurrence_id instead of the bare source question UUID, so two
+  // different sets that happen to reuse a question UUID (or a repeated question) never collide.
+  , `CREATE TABLE question_occurrences (id TEXT PRIMARY KEY, game_id TEXT NOT NULL REFERENCES games(id), game_set_id TEXT NOT NULL REFERENCES game_question_sets(id), question_id TEXT NOT NULL, occurrence_ordinal INTEGER NOT NULL, is_repeat INTEGER NOT NULL DEFAULT 0, opened_at TEXT NOT NULL, closes_at TEXT, closed_at TEXT, close_reason TEXT, created_at TEXT NOT NULL, UNIQUE(game_set_id, question_id, occurrence_ordinal));
+     CREATE INDEX occurrences_game_idx ON question_occurrences(game_id);
+     CREATE INDEX occurrences_lookup_idx ON question_occurrences(game_set_id, question_id, occurrence_ordinal);
+     ALTER TABLE games ADD COLUMN active_occurrence_id TEXT;
+     -- Backfill: one synthetic first occurrence per already-asked (game_set,question) pair, from existing timestamps.
+     INSERT INTO question_occurrences (id, game_id, game_set_id, question_id, occurrence_ordinal, is_repeat, opened_at, closes_at, closed_at, close_reason, created_at)
+       SELECT lower(hex(randomblob(16))), s.game_id, qs.game_set_id, qs.question_id, 1, 0, qs.asked_at,
+              CASE WHEN g.question_time_limit_seconds > 0 THEN datetime(qs.asked_at, '+' || g.question_time_limit_seconds || ' seconds') ELSE NULL END,
+              qs.completed_at, CASE WHEN qs.completed_at IS NOT NULL THEN 'host' ELSE NULL END, qs.asked_at
+         FROM game_question_state qs JOIN game_question_sets s ON s.id = qs.game_set_id JOIN games g ON g.id = s.game_id
+        WHERE qs.asked_at IS NOT NULL;
+     UPDATE games SET active_occurrence_id = (
+       SELECT o.id FROM question_occurrences o JOIN game_question_sets s ON s.id = o.game_set_id
+        WHERE s.game_id = games.id AND o.question_id = games.active_question_id ORDER BY o.occurrence_ordinal DESC LIMIT 1
+     ) WHERE active_question_id IS NOT NULL;`
+
+  // --- Phase 2: re-key layouts/answers on occurrence_id; add scoring-component breakdown ---
+  , `CREATE TABLE player_question_layouts_rebuilt (id TEXT PRIMARY KEY, player_id TEXT NOT NULL REFERENCES players(id), game_id TEXT NOT NULL REFERENCES games(id), occurrence_id TEXT NOT NULL REFERENCES question_occurrences(id), choices_json TEXT NOT NULL, correct_answer_id TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(player_id, occurrence_id));
+     -- Historical rows never recorded which attached set they belonged to; if two sibling sets on the
+     -- same game happened to reuse a question UUID (the very collision this migration fixes going
+     -- forward) the join below is ambiguous for that old row, so OR IGNORE drops it rather than failing
+     -- the migration. New gameplay after this migration can never produce that ambiguity again.
+     INSERT OR IGNORE INTO player_question_layouts_rebuilt (id, player_id, game_id, occurrence_id, choices_json, correct_answer_id, created_at)
+       SELECT l.id, l.player_id, l.game_id, o.id, l.choices_json, l.correct_answer_id, l.created_at
+         FROM player_question_layouts l
+         JOIN game_question_sets s ON s.game_id = l.game_id
+         JOIN question_occurrences o ON o.game_set_id = s.id AND o.question_id = l.question_id AND o.occurrence_ordinal = 1;
+     DROP TABLE player_question_layouts;
+     ALTER TABLE player_question_layouts_rebuilt RENAME TO player_question_layouts;
+     CREATE INDEX layouts_lookup_idx ON player_question_layouts(player_id, occurrence_id);
+
+     CREATE TABLE player_answers_rebuilt (id TEXT PRIMARY KEY, player_id TEXT NOT NULL REFERENCES players(id), game_id TEXT NOT NULL REFERENCES games(id), occurrence_id TEXT NOT NULL REFERENCES question_occurrences(id), answer_id TEXT NOT NULL, is_correct INTEGER NOT NULL, receipt_order INTEGER NOT NULL, received_at TEXT NOT NULL, elapsed_ms INTEGER NOT NULL, base_points INTEGER NOT NULL DEFAULT 0, first_correct_bonus INTEGER NOT NULL DEFAULT 0, time_bonus INTEGER NOT NULL DEFAULT 0, points_awarded INTEGER NOT NULL, UNIQUE(player_id, occurrence_id));
+     INSERT OR IGNORE INTO player_answers_rebuilt (id, player_id, game_id, occurrence_id, answer_id, is_correct, receipt_order, received_at, elapsed_ms, base_points, first_correct_bonus, time_bonus, points_awarded)
+       SELECT a.id, a.player_id, a.game_id, o.id, a.answer_id, a.is_correct, a.receipt_order, a.received_at, a.elapsed_ms, a.points_awarded, 0, 0, a.points_awarded
+         FROM player_answers a
+         JOIN game_question_sets s ON s.game_id = a.game_id
+         JOIN question_occurrences o ON o.game_set_id = s.id AND o.question_id = a.question_id AND o.occurrence_ordinal = 1;
+     DROP TABLE player_answers;
+     ALTER TABLE player_answers_rebuilt RENAME TO player_answers;
+     CREATE INDEX answers_occurrence_idx ON player_answers(game_id, occurrence_id, receipt_order);`
+
+  // --- Phase 2: soft player removal (game kick) ---
+  , `ALTER TABLE players ADD COLUMN removed_at TEXT;`
+
+  // --- Phase 2: Game Series ---
+  , `CREATE TABLE series (id TEXT PRIMARY KEY, owner_user_id TEXT NOT NULL REFERENCES users(id), join_code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, state TEXT NOT NULL, current_game_id TEXT REFERENCES games(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL, ended_at TEXT);
+     CREATE INDEX series_owner_idx ON series(owner_user_id); CREATE INDEX series_join_idx ON series(join_code);
+     CREATE TABLE series_participants (id TEXT PRIMARY KEY, series_id TEXT NOT NULL REFERENCES series(id), display_name TEXT NOT NULL, reconnect_hash TEXT NOT NULL UNIQUE, joined_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, removed_at TEXT);
+     CREATE INDEX series_participants_series_idx ON series_participants(series_id);
+     CREATE TABLE series_games (id TEXT PRIMARY KEY, series_id TEXT NOT NULL REFERENCES series(id), game_id TEXT NOT NULL UNIQUE REFERENCES games(id), sequence_ordinal INTEGER NOT NULL, created_at TEXT NOT NULL);
+     CREATE INDEX series_games_series_idx ON series_games(series_id, sequence_ordinal);
+     CREATE TABLE series_game_players (id TEXT PRIMARY KEY, series_participant_id TEXT NOT NULL REFERENCES series_participants(id), game_id TEXT NOT NULL REFERENCES games(id), player_id TEXT NOT NULL UNIQUE REFERENCES players(id), created_at TEXT NOT NULL, UNIQUE(series_participant_id, game_id));
+     CREATE INDEX series_game_players_participant_idx ON series_game_players(series_participant_id);
+     CREATE TABLE series_history (id TEXT PRIMARY KEY, series_id TEXT NOT NULL REFERENCES series(id), event_type TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL);
+     CREATE INDEX series_history_idx ON series_history(series_id, created_at);`
+
+  // --- Phase 2: auditable manual score adjustments ---
+  , `CREATE TABLE score_adjustments (id TEXT PRIMARY KEY, game_id TEXT NOT NULL REFERENCES games(id), player_id TEXT NOT NULL REFERENCES players(id), series_id TEXT REFERENCES series(id), delta INTEGER NOT NULL, reason TEXT NOT NULL, adjusted_by_user_id TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL);
+     CREATE INDEX score_adjustments_player_idx ON score_adjustments(player_id);
+     CREATE INDEX score_adjustments_game_idx ON score_adjustments(game_id);`
 ];
+
+/** Exported only so migration tests can construct a pre-Phase-2 database and verify the upgrade path, not just clean-database creation. */
+export const schemaMigrations = migrations;
 
 export function openDatabase(path: string) {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
