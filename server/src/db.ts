@@ -93,6 +93,15 @@ const migrations = [
   , `CREATE TABLE score_adjustments (id TEXT PRIMARY KEY, game_id TEXT NOT NULL REFERENCES games(id), player_id TEXT NOT NULL REFERENCES players(id), series_id TEXT REFERENCES series(id), delta INTEGER NOT NULL, reason TEXT NOT NULL, adjusted_by_user_id TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL);
      CREATE INDEX score_adjustments_player_idx ON score_adjustments(player_id);
      CREATE INDEX score_adjustments_game_idx ON score_adjustments(game_id);`
+
+  // --- Phase 3: no-answer scoring — answer_id becomes nullable so a question close can record an authoritative
+  // "this eligible player never answered" row (answer_id IS NULL) distinct from "answered incorrectly"
+  // (answer_id set, is_correct=0), while still applying the same configured incorrectPoints to both.
+  , `CREATE TABLE player_answers_rebuilt2 (id TEXT PRIMARY KEY, player_id TEXT NOT NULL REFERENCES players(id), game_id TEXT NOT NULL REFERENCES games(id), occurrence_id TEXT NOT NULL REFERENCES question_occurrences(id), answer_id TEXT, is_correct INTEGER NOT NULL, receipt_order INTEGER NOT NULL, received_at TEXT NOT NULL, elapsed_ms INTEGER NOT NULL, base_points INTEGER NOT NULL DEFAULT 0, first_correct_bonus INTEGER NOT NULL DEFAULT 0, time_bonus INTEGER NOT NULL DEFAULT 0, points_awarded INTEGER NOT NULL, UNIQUE(player_id, occurrence_id));
+     INSERT INTO player_answers_rebuilt2 SELECT id, player_id, game_id, occurrence_id, answer_id, is_correct, receipt_order, received_at, elapsed_ms, base_points, first_correct_bonus, time_bonus, points_awarded FROM player_answers;
+     DROP TABLE player_answers;
+     ALTER TABLE player_answers_rebuilt2 RENAME TO player_answers;
+     CREATE INDEX answers_occurrence_idx ON player_answers(game_id, occurrence_id, receipt_order);`
 ];
 
 /** Exported only so migration tests can construct a pre-Phase-2 database and verify the upgrade path, not just clean-database creation. */

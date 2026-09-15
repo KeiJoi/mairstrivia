@@ -6,8 +6,9 @@
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
+    "allowJs": true,
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "public/client-logic.js"]
 }

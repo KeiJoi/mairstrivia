@@ -343,19 +343,23 @@ export class TriviaService {
     if (occurrence.question_id !== questionId) this.fail(409, "invalid_state", "This question is not accepting answers.");
     const p = resolved.player;
     const prior = this.db.prepare("SELECT id FROM player_answers WHERE player_id=? AND occurrence_id=?").get(p.id, occurrence.id);
-    const scoring = json<Scoring>(g.scoring_json);
-    if (prior && !scoring.allowAnswerChange) this.fail(409, "answer_locked", "Your answer is already locked.");
+    // Answer changes are always permitted while the question remains open (Scoring.allowAnswerChange no longer
+    // gates this — see docs/NO_ANSWER_AND_ANSWER_CHANGE.md). Confirming a change is a client-side UX affordance;
+    // the only server-enforced boundary is the question still being open, checked above.
     const layout = this.db.prepare("SELECT * FROM player_question_layouts WHERE player_id=? AND occurrence_id=?").get(p.id, occurrence.id) as any;
     if (!layout || !json<{ id: string }[]>(layout.choices_json).some((c) => c.id === answerId)) this.fail(400, "invalid_answer", "That answer is not assigned to this player.");
     const correct = layout.correct_answer_id === answerId;
     const receipt = (this.db.prepare("SELECT COALESCE(MAX(receipt_order),0)+1 AS n FROM player_answers WHERE game_id=? AND occurrence_id=?").get(g.id, occurrence.id) as any).n;
     this.db.transaction(() => {
+      // A changed answer is a full replacement, never an in-place update: the old row (and its timing/bonus
+      // basis) is deleted, and the new row gets a brand-new authoritative receipt_order/received_at from THIS
+      // acceptance moment, so a fast first answer can never smuggle its speed bonus onto a later changed answer.
       if (prior) this.db.prepare("DELETE FROM player_answers WHERE player_id=? AND occurrence_id=?").run(p.id, occurrence.id);
       this.db.prepare("INSERT INTO player_answers (id,player_id,game_id,occurrence_id,answer_id,is_correct,receipt_order,received_at,elapsed_ms,base_points,first_correct_bonus,time_bonus,points_awarded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
         .run(randomUUID(), p.id, g.id, occurrence.id, answerId, correct ? 1 : 0, receipt, now(), Math.max(0, Date.now() - Date.parse(occurrence.opened_at)), 0, 0, 0, 0);
     })();
     this.changed(g.id);
-    return { accepted: true, locked: !scoring.allowAnswerChange };
+    return { accepted: true, changed: !!prior };
   }
 
   // -------------------------------------------------------------- close ---
@@ -403,6 +407,28 @@ export class TriviaService {
       const total = base + firstBonus + timeBonus;
       this.db.prepare("UPDATE player_answers SET base_points=?,first_correct_bonus=?,time_bonus=?,points_awarded=? WHERE id=?").run(base, firstBonus, timeBonus, total, answer.id);
       this.db.prepare("UPDATE players SET score=score+?,correct_count=correct_count+?,incorrect_count=incorrect_count+? WHERE id=?").run(total, isCorrect ? 1 : 0, isCorrect ? 0 : 1, answer.player_id);
+    }
+    // No-answer scoring: an eligible player (had a layout for this occurrence, i.e. the question was actually
+    // offered to them) who never submitted a player_answers row before close receives the SAME configured
+    // incorrectPoints as a wrong answer — no first/second/third-correct bonus and no time bonus, since neither
+    // is meaningful for a non-response. Re-checks removed_at at settle time (not just at layout time) so a
+    // player kicked after the question opened but before it closed is excluded. The row's answer_id is left
+    // NULL, which is what distinguishes "did not answer" from "answered incorrectly" (answer_id set, is_correct=0)
+    // everywhere else this table is read (playerState's selectedAnswer resolves to null automatically).
+    // This runs only inside closeGame's single-flight "question_open -> results" transition (see closeGame's
+    // guard), so it can never double-apply the same penalty on a repeated close/reveal/reconnect.
+    const unanswered = this.db.prepare(`
+      SELECT l.player_id AS playerId FROM player_question_layouts l
+        JOIN players p ON p.id = l.player_id
+       WHERE l.occurrence_id = ? AND p.removed_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM player_answers a WHERE a.player_id = l.player_id AND a.occurrence_id = l.occurrence_id)`)
+      .all(occurrence.id) as { playerId: string }[];
+    const settledAt = occurrence.closes_at ?? now();
+    const elapsedMs = Math.max(0, Date.parse(settledAt) - Date.parse(occurrence.opened_at));
+    for (const { playerId } of unanswered) {
+      this.db.prepare("INSERT INTO player_answers (id,player_id,game_id,occurrence_id,answer_id,is_correct,receipt_order,received_at,elapsed_ms,base_points,first_correct_bonus,time_bonus,points_awarded) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .run(randomUUID(), playerId, g.id, occurrence.id, null, 0, 0, settledAt, elapsedMs, scoring.incorrectPoints, 0, 0, scoring.incorrectPoints);
+      this.db.prepare("UPDATE players SET score=score+?,incorrect_count=incorrect_count+1 WHERE id=?").run(scoring.incorrectPoints, playerId);
     }
     return { questionId: occurrence.question_id, correctAnswer: this.questionByOccurrence(occurrence).correctAnswer, firstResponder };
   }

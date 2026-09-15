@@ -13,3 +13,12 @@
 @media (max-width:420px){.leaderboard-row{flex-wrap:wrap}.leaderboard-correct{flex-basis:100%;order:3;padding-left:2.4em}}
 .podium{text-align:center;margin-top:8px}.podium-medal{font-size:3em;margin:0}.podium-names{font-size:1.2em;font-weight:700;color:var(--pink)}
 .waiting-next{margin-top:16px;font-style:italic}
+.modal-overlay{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center;padding:18px;z-index:10}
+.modal{background:var(--card);border-radius:16px;padding:24px;max-width:420px;width:100%;box-shadow:0 20px 60px #000a}
+.modal h3{margin-top:0}
+.modal p{color:#c7bdc1}
+.modal-actions{display:flex;gap:10px;margin-top:16px}
+.modal-actions button{width:auto;flex:1;margin:0}
+.modal-secondary{background:#2c2930}
+.modal-secondary:hover,.modal-secondary:focus{outline:3px solid var(--pink)}
+.modal-primary{background:var(--orange)}

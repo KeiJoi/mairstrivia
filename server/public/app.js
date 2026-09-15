@@ -1,3 +1,5 @@
+import { isQuestionExpired, decideChoiceClick, revealStandingsTitle } from "./client-logic.js";
+
 const app = document.querySelector("#app");
 const code = location.pathname.split("/").pop();
 const storageKey = `mairs:${code}`;
@@ -6,6 +8,9 @@ let state, socket, reconnectTimer, countdownTimer;
 let stateInitialized = false;
 let removed = false;
 let connectionIssue = false;
+// Transient, client-only: the answer the player clicked while a different answer was already submitted, awaiting
+// Change Answer / Keep Current Answer. Never sent to the server until confirmed — see confirmChange().
+let pendingChangeAnswerId = null;
 let notificationSoundEnabled = localStorage.getItem("mairs:notification-sound") !== "off";
 const notificationSound = document.querySelector("#question-notification");
 
@@ -54,11 +59,21 @@ function renderConnectionIssue() {
   return `<h1>Connection problem</h1><p class="muted">We couldn't reach the server. Retrying automatically…</p>`;
 }
 
+function questionExpired() { return isQuestionExpired(state.question?.closesAt); }
+
 function questionSection() {
   const q = state.question;
   const selected = q.selectedAnswerId;
-  const locked = q.answerSubmitted ? " disabled" : "";
-  return `<h2>Question</h2><p>${escapeHtml(q.question)}</p>${q.closesAt ? `<p class="muted">Time remaining: <span id="countdown"></span></p>` : ""}<p class="muted">Choose one answer:</p>${q.choices.map((choice) => `<button class="choice${selected === choice.id ? " selected" : ""}" data-id="${choice.id}"${locked}>${escapeHtml(choice.text)}</button>`).join("")}${q.answerSubmitted ? `<p class="muted">Answer submitted. Waiting for results…</p>` : ""}`;
+  const expired = questionExpired();
+  const choices = q.choices.map((choice) => `<button class="choice${selected === choice.id ? " selected" : ""}" data-id="${choice.id}"${expired ? " disabled" : ""}>${escapeHtml(choice.text)}</button>`).join("");
+  const status = q.answerSubmitted ? `<p class="muted">Answer submitted${expired ? "" : " — choose a different answer to change it"}. Waiting for results…</p>` : "";
+  return `<h2>Question</h2><p>${escapeHtml(q.question)}</p>${q.closesAt ? `<p class="muted">Time remaining: <span id="countdown"></span></p>` : ""}<p class="muted">Choose one answer:</p>${choices}${status}${!expired && pendingChangeAnswerId ? renderChangeConfirm() : ""}`;
+}
+
+function renderChangeConfirm() {
+  const choice = state.question?.choices.find((c) => c.id === pendingChangeAnswerId);
+  if (!choice) return "";
+  return `<div class="modal-overlay"><div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="change-confirm-title"><h3 id="change-confirm-title">Change your answer?</h3><p>You already submitted an answer. Changing it will replace your current answer and reset your response-time bonus to the time of the new answer.</p><div class="modal-actions"><button id="change-confirm-keep" class="modal-secondary">Keep Current Answer</button><button id="change-confirm-change" class="modal-primary">Change Answer</button></div></div></div>`;
 }
 
 function resultSection() {
@@ -67,7 +82,13 @@ function resultSection() {
   const breakdown = result.isCorrect
     ? `<ul class="score-breakdown"><li>Correct answer: +${result.basePoints}</li>${result.firstCorrectBonus ? `<li>First correct: +${result.firstCorrectBonus}</li>` : ""}${result.timeBonus ? `<li>Speed bonus: +${result.timeBonus}</li>` : ""}</ul>`
     : "";
-  const primary = state.seriesId ? renderLeaderboard("Series standings", result.seriesStandings, state.player.displayName) : renderLeaderboard("Standings", result.leaderboard, state.player.displayName);
+  // Per-question Answer Reveal always shows the CURRENT GAME's standings, never the Series cumulative total —
+  // even inside a Series, where result.seriesStandings is also available on this payload but deliberately
+  // unused here. (Cumulative Series standings are shown separately at series_lobby and at game/series completion,
+  // where gameCompleteSection() already renders both side by side.) Before this fix, a game inside a Series
+  // showed result.seriesStandings here instead, which coincidentally matched game-1 numbers (series total ==
+  // game total when only one game has been played) but diverged silently from game 2 onward.
+  const primary = renderLeaderboard(revealStandingsTitle(state.seriesId), result.leaderboard, state.player.displayName);
   return `<section class="result"><h2>Results</h2><p>${escapeHtml(result.question)}</p><p class="result-outcome ${result.isCorrect ? "correct" : "incorrect"}">${outcome}</p><p>Your answer: ${escapeHtml(result.selectedAnswer ?? "No answer")}</p><p>Correct answer: <strong>${escapeHtml(result.correctAnswer)}</strong></p><p>Points awarded: ${result.pointsAwarded}</p>${breakdown}</section>${primary}`;
 }
 
@@ -110,23 +131,54 @@ function render() {
     localStorage.setItem("mairs:notification-sound", notificationSoundEnabled ? "on" : "off");
     render();
   });
-  document.querySelectorAll(".choice:not(:disabled)").forEach((button) => button.onclick = async () => {
-    try {
-      state.question.selectedAnswerId = button.dataset.id;
-      state.question.answerSubmitted = true;
-      render();
-      await request("/v1/player/answer", { reconnectToken: token, questionId: state.question.id, answerId: button.dataset.id });
-    } catch (error) {
-      state.question.selectedAnswerId = null;
-      state.question.answerSubmitted = false;
-      render();
-      if (error.code === "player_removed") applyRemoved(); else alert(error.message);
-    }
-  });
+  document.querySelectorAll(".choice:not(:disabled)").forEach((button) => button.onclick = () => onChoiceClick(button.dataset.id));
+  document.querySelector("#change-confirm-change")?.addEventListener("click", confirmChange);
+  document.querySelector("#change-confirm-keep")?.addEventListener("click", cancelChange);
   if (state.state === "question_open" && state.question?.closesAt) {
-    const updateCountdown = () => { const countdown = document.querySelector("#countdown"); if (countdown) countdown.textContent = `${Math.max(0, Math.ceil((Date.parse(state.question.closesAt) - Date.now()) / 1000))}s`; };
+    const updateCountdown = () => {
+      const countdown = document.querySelector("#countdown");
+      if (countdown) countdown.textContent = `${Math.max(0, Math.ceil((Date.parse(state.question.closesAt) - Date.now()) / 1000))}s`;
+      if (questionExpired() && pendingChangeAnswerId) { pendingChangeAnswerId = null; render(); }
+    };
     updateCountdown();
     countdownTimer = setInterval(updateCountdown, 250);
+  }
+}
+
+// First answer on a question submits instantly (no confirmation) — this is deliberate and must stay fast.
+// Once an answer is already submitted, clicking a DIFFERENT answer opens a confirm step instead of replacing it
+// immediately; re-clicking the SAME answer that's already current is a no-op (no dialog, no request, no timestamp
+// change). The actual decision lives in decideChoiceClick() (client-logic.js) so it can be unit-tested directly.
+function onChoiceClick(answerId) {
+  switch (decideChoiceClick(state.question, answerId, questionExpired())) {
+    case "submit": submitAnswer(answerId); break;
+    case "confirm": pendingChangeAnswerId = answerId; render(); break;
+    case "ignore": default: break;
+  }
+}
+
+function cancelChange() { pendingChangeAnswerId = null; render(); }
+
+function confirmChange() {
+  const answerId = pendingChangeAnswerId;
+  pendingChangeAnswerId = null;
+  if (answerId) submitAnswer(answerId);
+}
+
+async function submitAnswer(answerId) {
+  const previousSelectedId = state.question.selectedAnswerId, previousSubmitted = state.question.answerSubmitted;
+  state.question.selectedAnswerId = answerId;
+  state.question.answerSubmitted = true;
+  render();
+  try {
+    await request("/v1/player/answer", { reconnectToken: token, questionId: state.question.id, answerId });
+  } catch (error) {
+    // Roll back to whatever was authoritative before this attempt — a rejected first answer clears the
+    // optimistic selection entirely; a rejected CHANGE restores the still-authoritative original answer rather
+    // than clearing it. A late rejection because the question closed underneath us reconciles safely on the
+    // next state push, which is already in flight.
+    if (state.question) { state.question.selectedAnswerId = previousSelectedId; state.question.answerSubmitted = previousSubmitted; render(); }
+    if (error.code === "player_removed") applyRemoved(); else if (error.code !== "invalid_state") alert(error.message);
   }
 }
 
